@@ -15,7 +15,7 @@
             <i class='bx bx-shield-quarter' style="font-size: 35px; color: var(--color-primario);"></i>
             <h1 id="logo-texto">PANEL DE CONTROL</h1>
         </div>
-        <a href="/index.html" class="btn-volver" style="color: var(--texto-secundario); text-decoration: none;">Salir a la Tienda</a>
+        <a href="#" onclick="cerrarSesionJefe()" class="btn-volver" style="color: var(--texto-secundario); text-decoration: none;">Cerrar Sesión de Jefe</a>
     </header>
 
     <main id="contenedor-login">
@@ -37,10 +37,12 @@
 
                 <div class="grupo-input">
                     <label for="categoria-track">Categoría</label>
-                    <select id="categoria-track" required style="width: 100%; padding: 12px; border-radius: 5px; border: 1px solid var(--borde-tarjeta); background-color: rgba(255, 255, 255, 0.05); color: white; margin-top: 5px;">
-                        <option value="ALBUMES" style="color: black;">Álbumes</option>
-                        <option value="SINGLE" style="color: black;">Single</option>
-                    </select>
+                <select id="categoria-track" required style="width: 100%; padding: 12px; border-radius: 5px; border: 1px solid var(--borde-tarjeta); background-color: rgba(255, 255, 255, 0.05); color: white; margin-top: 5px;">
+                    <option value="" disabled selected>Selecciona una categoría...</option>
+                    <option value="ALBUMES" style="color: black;">Álbumes</option>
+                    <option value="SINGLE" style="color: black;">Single</option>
+                </select>
+
                 </div>
 
                 <div class="grupo-input">
@@ -56,6 +58,7 @@
                 <div class="grupo-input">
                     <label for="audio-track">Sube el Audio (MP3/WAV)</label>
                     <input type="file" id="audio-track" accept="audio/*" required>
+                    <p id="texto-multiples" style="display: none; color: #25D366; font-size: 12px; margin-top: 5px;">🎵 Puedes seleccionar varias canciones a la vez.</p>
                 </div>
 
                 <p id="mensaje-admin" style="color: #25D366; font-size: 14px; text-align: center; display: none; margin-top: -10px; margin-bottom: 15px; font-weight: bold;"></p>
@@ -63,9 +66,41 @@
                 <button type="submit" class="btn-primario" style="width: 100%;">PUBLICAR EN LA TIENDA</button>
 
             </form>
+
+            <div class="gestor-tracks" style="margin-top: 50px; padding: 20px; background: rgba(255, 255, 255, 0.02); border-radius: 10px; border: 1px solid var(--borde-tarjeta);">
+    
+            <div id="cabecera-gestor" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+             <h3 style="color: white; margin: 0;">🎧 Gestor de Música Subida</h3>
+             <span id="icono-desplegable" style="color: white; font-size: 16px; transition: transform 0.3s;">▼</span>
+    </div>
+    
+            <div id="lista-admin-tracks" style="display: none; margin-top: 20px;">
+     </div>
+
+    </div>
+
         </section>
     </main>
 
-    <script src="/assets/js/script.js"></script>
+   <script src="../js/script.js"></script>
 </body>
+
+<script>
+    // El guardia del administrador inteligente
+    const isAdmin = localStorage.getItem('admin_mc_activo');
+    
+    if (isAdmin !== 'true') {
+        alert("🔒 Acceso denegado. Debes iniciar sesión como Administrador.");
+        // Al estar en la misma carpeta 'pages', lo mandamos directo a login.html sin barras
+        window.location.href = 'login.html';
+    }
+
+    // Función para destruir la llave maestra y salir
+    function cerrarSesionJefe() {
+        localStorage.removeItem('admin_mc_activo');
+        alert("🔒 Sesión de Administrador cerrada. Modo seguro activado.");
+        window.location.href = '/index.html'; // Te manda al inicio como un usuario normal
+    }
+</script>
+
 </html>
