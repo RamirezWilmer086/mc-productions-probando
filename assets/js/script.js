@@ -510,7 +510,7 @@ if (formAdmin) {
 
             transaccion.oncomplete = () => {
                 mensajeAdmin.textContent = "¡Track/Álbum subido con éxito a la base de datos!";
-                mensajeAdmin.style.color = "#25D366";
+                mensajeAdmin.style.color = "#8a2be2";
                 mensajeAdmin.style.display = "block";
                 formAdmin.reset();
 
@@ -704,7 +704,7 @@ async function cargarTracksAdmin() {
                 
                 // Saber si es álbum para mostrar cuántas pistas tiene
                 const esAlbum = track.categoria === 'ALBUMES' && Array.isArray(track.audio);
-                const infoExtra = esAlbum ? `<span style="color: #25D366; font-size: 11px;">(${track.audio.length} pistas)</span>` : '';
+                const infoExtra = esAlbum ? `<span style="color: "#8a2be2"; font-size: 11px;">(${track.audio.length} pistas)</span>` : '';
 
                 item.innerHTML = `
                     <div style="display: flex; align-items: center; gap: 15px;">
@@ -799,7 +799,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const compras = JSON.parse(localStorage.getItem(claveCompras)) || [];
         
         if (compras.length > 0) {
-            contenedorBiblioteca.innerHTML = '<p style="text-align:center; color: #25D366; width: 100%;">Cargando música desde los servidores seguros...</p>';
+            contenedorBiblioteca.innerHTML = '<p style="text-align:center; color: "#8a2be2"; width: 100%;">Cargando música desde los servidores seguros...</p>';
             
             try {
                 const db = await abrirBaseDeDatos();
@@ -816,7 +816,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         
                         const articulo = document.createElement('article');
                         articulo.classList.add('album');
-                        articulo.style.border = "1px solid #25D366"; 
+                        articulo.style.border = "1px solid #8a2be2"; 
                         
                         let bloqueAudioHTML = '';
                         
@@ -834,7 +834,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     <div style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
                                         <p style="font-size: 12px; color: white; margin-bottom: 5px;"><b>${index + 1}.</b> ${nombrePista}</p>
                                         <audio controls src="${urlAudio}" style="width: 100%; height: 30px;"></audio>
-                                        <a href="${urlAudio}" download="${datos.artista || 'Artista'} - ${nombrePista}.mp3" style="display: block; text-align: center; background: #25D366; color: black; padding: 5px; border-radius: 4px; font-size: 11px; margin-top: 5px; text-decoration: none; font-weight: bold;">
+                                        <a href="${urlAudio}" download="${datos.artista || 'Artista'} - ${nombrePista}.mp3" style="display: block; text-align: center; background: #8a2be2; color: black; padding: 5px; border-radius: 4px; font-size: 11px; margin-top: 5px; text-decoration: none; font-weight: bold;">
                                             <i class='bx bx-download'></i> DESCARGAR
                                         </a>
                                     </div>`;
@@ -845,7 +845,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         else {
                             bloqueAudioHTML = `
                                 <audio controls src="${archivoMusical}" style="width: 100%; margin-top: 10px; margin-bottom: 10px;"></audio>
-                                <a href="${archivoMusical}" download="${datos.artista || 'Artista'} - ${datos.titulo || 'Audio'}.mp3" style="display: block; text-align: center; background: #25D366; color: black; padding: 8px; border-radius: 4px; font-size: 12px; text-decoration: none; font-weight: bold;">
+                                <a href="${archivoMusical}" download="${datos.artista || 'Artista'} - ${datos.titulo || 'Audio'}.mp3" style="display: block; text-align: center; background: #8a2be2; color: black; padding: 8px; border-radius: 4px; font-size: 12px; text-decoration: none; font-weight: bold;">
                                     <i class='bx bx-download'></i> DESCARGAR ARCHIVO
                                 </a>
                             `;
@@ -855,7 +855,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             <img src="${datos.img || trackComprado.img || '/assets/img/logo.png'}" alt="Portada">
                             <h4>${datos.artista || trackComprado.artista || 'Artista Desconocido'}</h4>
                             <p>${datos.titulo || trackComprado.titulo || 'Sin título'}</p>
-                            <span style="display: inline-block; background: rgba(37, 211, 102, 0.2); color: #25D366; padding: 3px 8px; border-radius: 10px; font-size: 10px; font-weight: bold; margin-bottom: 10px;">TRACK ADQUIRIDO</span>
+                            <span style="display: inline-block; background: rgba(37, 211, 102, 0.2); color: #8a2be2; padding: 3px 8px; border-radius: 10px; font-size: 10px; font-weight: bold; margin-bottom: 10px;">TRACK ADQUIRIDO</span>
                             ${bloqueAudioHTML}
                         `;
                         contenedorBiblioteca.appendChild(articulo);
@@ -959,7 +959,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 // Va directo a su panel (Son vecinos en pages)
-                setTimeout(() => { window.location.href = 'admin.html'; }, 1000);
+                setTimeout(() => { window.location.href = '/assets/pages/admin.html'; }, 1000);
                 return; // ¡Frena todo para que no se mezcle con el cliente!
             }
 
