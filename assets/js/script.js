@@ -1,3 +1,28 @@
+
+// 🚀 CONEXIÓN A FIREBASE (BASE DE DATOS EN LA NUBE)
+// ==========================================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+import { getStorage } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-storage.js";
+
+// ... (Abajo de esto dejas tu const firebaseConfig y la inicialización igualito a como lo tienes) ...
+
+const firebaseConfig = {
+    apiKey: "AIzaSyCe18DBeoTAo4VLcaDltvBG2WJdtljIRVQ",
+    authDomain: "mc-productions-bbb58.firebaseapp.com",
+    projectId: "mc-productions-bbb58",
+    storageBucket: "mc-productions-bbb58.firebasestorage.app",
+    messagingSenderId: "397778540670",
+    appId: "1:397778540670:web:e463876e5133347542602f"
+};
+
+// Inicializamos los superpoderes
+const app = initializeApp(firebaseConfig);
+export const db = getFirestore(app);
+export const auth = getAuth(app);
+export const storage = getStorage(app);
+
 // ==========================================
 // 1. MENÚ MÓVIL (Hamburguesa) MEJORADO
 // ==========================================
@@ -577,102 +602,147 @@ configurarOjito('password', 'toggle-password');
 configurarOjito('confirmar-password', 'toggle-confirm-password');
 configurarOjito('login-password', 'toggle-login-password');
 
+// ==========================================
+// SISTEMA DE REGISTRO CON FIREBASE
+// ==========================================
 if (formRegistro) {
-    formRegistro.addEventListener('submit', (evento) => {
+    formRegistro.addEventListener('submit', async (evento) => {
         evento.preventDefault();
-        const usuario = document.getElementById('usuario').value;
-        const email = document.getElementById('email').value;
+        
+        const usuario = document.getElementById('usuario').value.trim();
+        const email = document.getElementById('email').value.trim();
         const password = document.getElementById('password').value;
         const confirmPassword = document.getElementById('confirmar-password').value;
         const btnSubmit = formRegistro.querySelector('button');
 
         if (password !== confirmPassword) {
             mensajeErrorUsuario.textContent = "Las contraseñas no coinciden.";
-            mensajeErrorUsuario.style.display = "block"; return;
+            mensajeErrorUsuario.style.display = "block"; 
+            return;
         }
         if (password.length < 6) {
             mensajeErrorUsuario.textContent = "La contraseña debe tener al menos 6 caracteres.";
-            mensajeErrorUsuario.style.display = "block"; return;
-        }
-        if (usuariosBD.find(user => user.correo === email)) {
-            mensajeErrorUsuario.textContent = "Este correo ya está registrado. Inicia sesión.";
-            mensajeErrorUsuario.style.display = "block"; return;
+            mensajeErrorUsuario.style.display = "block"; 
+            return;
         }
 
-        mensajeErrorUsuario.style.display = "none";
-        usuariosBD.push({ nombre: usuario, correo: email, clave: password });
-        localStorage.setItem('mc_usuarios', JSON.stringify(usuariosBD));
-
-        btnSubmit.textContent = 'CREANDO CUENTA...';
+        btnSubmit.textContent = 'CREANDO CUENTA EN LA NUBE...';
         btnSubmit.style.opacity = '0.7';
         btnSubmit.style.pointerEvents = 'none';
+        mensajeErrorUsuario.style.display = "none";
 
-        setTimeout(() => { window.location.href = "login.html"; }, 1500);
+        try {
+            // 1. Creamos el usuario en Firebase Authentication
+            const credencial = await createUserWithEmailAndPassword(auth, email, password);
+            const usuarioFirebase = credencial.user;
+
+            // 2. Guardamos sus datos en Firestore Database
+            await setDoc(doc(db, "usuarios", usuarioFirebase.uid), {
+                nombre: usuario,
+                correo: email,
+                rol: "cliente",
+                fechaRegistro: new Date().toISOString()
+            });
+
+            alert("✅ ¡Cuenta creada con éxito! Ahora inicia sesión.");
+            window.location.href = "login.html";
+
+        } catch (error) {
+            btnSubmit.textContent = 'REGISTRARSE';
+            btnSubmit.style.opacity = '1';
+            btnSubmit.style.pointerEvents = 'auto';
+
+            if (error.code === 'auth/email-already-in-use') {
+                mensajeErrorUsuario.textContent = "Este correo ya está registrado. Ve al Login.";
+            } else {
+                mensajeErrorUsuario.textContent = "Error al crear la cuenta: " + error.message;
+            }
+            mensajeErrorUsuario.style.display = "block";
+        }
     });
 }
 
+// ==========================================
+// SISTEMA DE INICIO DE SESIÓN CON FIREBASE
+// ==========================================
+const mensajeErrorLogin = document.getElementById('mensaje-error-login');
+
 if (formLogin) {
-    formLogin.addEventListener('submit', (evento) => {
+    
+    formLogin.addEventListener('submit', async (evento) => {
         evento.preventDefault();
-        
-        // 1. CONECTAMOS CON LOS IDs REALES DE TU HTML
+
         const inputCorreo = document.getElementById('login-identificador');
         const inputClave = document.getElementById('login-password');
         const btnSubmit = formLogin.querySelector('button');
 
-        // Si por alguna razón no existen en la pantalla, frenamos para no dar error
-        if (!inputCorreo || !inputClave) return; 
+        if (!inputCorreo || !inputClave) return;
 
-        // 2. EXTRAEMOS LO QUE ESCRIBIÓ EL USUARIO
         const email = inputCorreo.value.trim().toLowerCase();
         const password = inputClave.value;
 
-        // 🔥 PUERTA SECRETA DEL ADMINISTRADOR 🔥
-        // Acepta "admin_mc" o "admin@mc.com"
+        // Animación profesional en el botón
+        btnSubmit.textContent = 'VERIFICANDO CREDENCIALES...';
+        btnSubmit.style.opacity = '0.7';
+        btnSubmit.style.pointerEvents = 'none';
+        if (mensajeErrorLogin) mensajeErrorLogin.style.display = "none";
+
+        // 👨‍💻 ALERTA DE SEGURIDAD: CONTROL DE ACCESO LOCAL PARA EL JEFE
         if ((email === "admin_mc" || email === "admin@mc.com") && password === "Jefe2026*") {
             localStorage.setItem('admin_mc_activo', 'true');
-            alert("👨‍💻 Bienvenido a la cabina de mando, Jefe.");
-            
-            // Ruta directa porque admin.html y login.html son vecinos en 'pages'
-            window.location.href = 'admin.html'; 
-            return; 
-        }
-
-        // ==========================================
-        // TU CÓDIGO NORMAL PARA CLIENTES
-        // ==========================================
-        const usuarioEncontrado = usuariosBD.find(user => 
-            (user.correo || "").toLowerCase() === email || (user.nombre || "").toLowerCase() === email
-        );
-
-        if (!usuarioEncontrado || usuarioEncontrado.clave !== password) {
-            if (mensajeErrorUsuario) {
-                mensajeErrorUsuario.textContent = "Correo o contraseña incorrectos.";
-                mensajeErrorUsuario.style.display = "block"; 
-            } else {
-                alert("Correo o contraseña incorrectos.");
-            }
+            alert("👨‍💻 Acceso concedido. Abriendo cabina de mando, Jefe.");
+            window.location.href = 'admin.html';
             return;
         }
 
-        if (mensajeErrorUsuario) mensajeErrorUsuario.style.display = "none";
-        
-        // Guardamos las llaves del cliente
-        localStorage.setItem('mc_usuario_activo', JSON.stringify({
-            nombre: usuarioEncontrado.nombre, 
-            correo: usuarioEncontrado.correo,
-            token: "mc_" + Math.random().toString(36).substr(2, 9)
-        }));
-        localStorage.setItem('usuario_mc_activo', usuarioEncontrado.correo);
+        // 🔐 ACCESO PARA CLIENTES EN LA NUBE (FIREBASE)
+        try {
+            // Intentamos iniciar sesión en Firebase Auth
+            const credencial = await signInWithEmailAndPassword(auth, email, password);
+            const usuarioFirebase = credencial.user;
 
-        if (btnSubmit) {
-            btnSubmit.textContent = 'VERIFICANDO...';
-            btnSubmit.style.opacity = '0.7';
-            btnSubmit.style.pointerEvents = 'none';
+            // Buscamos su perfil guardado en Firestore para saber su nombre real
+            const docRef = doc(db, "usuarios", usuarioFirebase.uid);
+            const docSnap = await getDoc(docRef);
+
+            let nombreUsuario = "Cliente";
+            if (docSnap.exists()) {
+                nombreUsuario = docSnap.data().nombre;
+            }
+
+            // Guardamos la sesión activa del cliente en el navegador
+            localStorage.setItem('usuario_mc_activo', usuarioFirebase.email);
+            
+            // Animación Premium de éxito en el botón
+            btnSubmit.style.backgroundColor = "#28a745"; // Se pone verde
+            btnSubmit.style.opacity = '1';
+            btnSubmit.textContent = `✅ ¡BIENVENIDO, ${nombreUsuario.toUpperCase()}!`;
+            
+            // Esperamos un segundito para que el cliente lea y lo mandamos suave a la tienda
+            setTimeout(() => {
+                window.location.href = "tienda.html";
+            }, 1200);
+        } catch (error) {
+            
+            // Si hay un error, devolvemos el botón a la normalidad
+            btnSubmit.textContent = 'ENTRAR';
+            btnSubmit.style.opacity = '1';
+            btnSubmit.style.pointerEvents = 'auto';
+
+            console.error("Error en login:", error.code);
+
+            // Mensaje elegante para el usuario
+            if (mensajeErrorLogin) {
+                if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                    mensajeErrorLogin.textContent = "❌ El correo o la contraseña son incorrectos.";
+                } else {
+                    mensajeErrorLogin.textContent = "❌ Error al conectar: " + error.message;
+                }
+                mensajeErrorLogin.style.display = "block";
+            } else {
+                alert("❌ Correo o contraseña incorrectos.");
+            }
         }
-
-        // Redirige a tienda.html (vecina de login.html)
-        setTimeout(() => { window.location.href = "tienda.html"; }, 1500);
     });
 }
 // ==========================================
