@@ -668,7 +668,7 @@ if (formRegistro) {
 const mensajeErrorLogin = document.getElementById('mensaje-error-login');
 
 if (formLogin) {
-    
+    // IMPORTANTE: Si ves otro "formLogin.addEventListener" más arriba o más abajo, ¡BÓRRALO! Solo debe existir este:
     formLogin.addEventListener('submit', async (evento) => {
         evento.preventDefault();
 
@@ -681,27 +681,31 @@ if (formLogin) {
         const email = inputCorreo.value.trim().toLowerCase();
         const password = inputClave.value;
 
-        // Animación profesional en el botón
+        // 🧹 APAGAMOS CUALQUIER ERROR VIEJO AL INSTANTE
+        if (mensajeErrorLogin) {
+            mensajeErrorLogin.style.display = "none";
+            mensajeErrorLogin.textContent = "";
+        }
+
         btnSubmit.textContent = 'VERIFICANDO CREDENCIALES...';
         btnSubmit.style.opacity = '0.7';
         btnSubmit.style.pointerEvents = 'none';
-        if (mensajeErrorLogin) mensajeErrorLogin.style.display = "none";
 
-        // 👨‍💻 ALERTA DE SEGURIDAD: CONTROL DE ACCESO LOCAL PARA EL JEFE
+        // 👨‍💻 PUERTA SECRETA DEL JEFE (LOCAL)
         if ((email === "admin_mc" || email === "admin@mc.com") && password === "Jefe2026*") {
             localStorage.setItem('admin_mc_activo', 'true');
-            alert("👨‍💻 Acceso concedido. Abriendo cabina de mando, Jefe.");
-            window.location.href = 'admin.html';
+            btnSubmit.style.backgroundColor = "#8a2be2";
+            btnSubmit.style.opacity = '1';
+            btnSubmit.textContent = "👨‍💻 ABRIENDO CABINA...";
+            setTimeout(() => { window.location.href = 'admin.html'; }, 1000);
             return;
         }
 
         // 🔐 ACCESO PARA CLIENTES EN LA NUBE (FIREBASE)
         try {
-            // Intentamos iniciar sesión en Firebase Auth
             const credencial = await signInWithEmailAndPassword(auth, email, password);
             const usuarioFirebase = credencial.user;
 
-            // Buscamos su perfil guardado en Firestore para saber su nombre real
             const docRef = doc(db, "usuarios", usuarioFirebase.uid);
             const docSnap = await getDoc(docRef);
 
@@ -710,28 +714,26 @@ if (formLogin) {
                 nombreUsuario = docSnap.data().nombre;
             }
 
-            // Guardamos la sesión activa del cliente en el navegador
+            // 🎟️ LE DAMOS LOS DOS PASES VIP PARA QUE LA TIENDA NO SE VUELVA LOCA
             localStorage.setItem('usuario_mc_activo', usuarioFirebase.email);
+            localStorage.setItem('mc_usuario_activo', JSON.stringify({
+                nombre: nombreUsuario, 
+                correo: usuarioFirebase.email,
+                token: "firebase_" + usuarioFirebase.uid // Token moderno
+            }));
             
-            // Animación Premium de éxito en el botón
-            btnSubmit.style.backgroundColor = "#28a745"; // Se pone verde
+            // Animación Premium
+            btnSubmit.style.backgroundColor = "#28a745"; 
             btnSubmit.style.opacity = '1';
             btnSubmit.textContent = `✅ ¡BIENVENIDO, ${nombreUsuario.toUpperCase()}!`;
             
-            // Esperamos un segundito para que el cliente lea y lo mandamos suave a la tienda
-            setTimeout(() => {
-                window.location.href = "tienda.html";
-            }, 1200);
+            setTimeout(() => { window.location.href = "tienda.html"; }, 1200);
+
         } catch (error) {
-            
-            // Si hay un error, devolvemos el botón a la normalidad
             btnSubmit.textContent = 'ENTRAR';
             btnSubmit.style.opacity = '1';
             btnSubmit.style.pointerEvents = 'auto';
 
-            console.error("Error en login:", error.code);
-
-            // Mensaje elegante para el usuario
             if (mensajeErrorLogin) {
                 if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
                     mensajeErrorLogin.textContent = "❌ El correo o la contraseña son incorrectos.";
@@ -739,8 +741,6 @@ if (formLogin) {
                     mensajeErrorLogin.textContent = "❌ Error al conectar: " + error.message;
                 }
                 mensajeErrorLogin.style.display = "block";
-            } else {
-                alert("❌ Correo o contraseña incorrectos.");
             }
         }
     });
