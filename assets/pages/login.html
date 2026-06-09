@@ -30,9 +30,11 @@
         <input type="text" id="login-identificador" placeholder="Tu nombre de usuario o tu@correo.com" required>
     </div>
     
-    <div class="grupo-input">
+    <div class="grupo-input" style="position: relative;">
         <label for="login-password">Contraseña</label>
-        <input type="password" id="login-password" placeholder="Tu contraseña" required>
+        <input type="password" id="login-password" placeholder="Tu contraseña" required style="padding-right: 40px;">
+        
+        <i class='bx bx-hide' id="toggle-login-password" style="position: absolute; right: 15px; top: 38px; cursor: pointer; font-size: 22px; color: #8a2be2;"></i>
     </div>
     
     <p id="mensaje-error-login" style="color: #ff4d4d; font-size: 14px; text-align: center; display: none; margin-top: -10px; margin-bottom: 15px; font-weight: bold;"></p>

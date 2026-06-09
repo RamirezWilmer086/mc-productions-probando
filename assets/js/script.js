@@ -575,6 +575,7 @@ function configurarOjito(inputId, iconId) {
 
 configurarOjito('password', 'toggle-password');
 configurarOjito('confirmar-password', 'toggle-confirm-password');
+configurarOjito('login-password', 'toggle-login-password');
 
 if (formRegistro) {
     formRegistro.addEventListener('submit', (evento) => {
@@ -1097,67 +1098,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Alerta de éxito y viaje directo a la tienda
             alert(`✅ ¡Bienvenido a la familia MC Productions, ${nombre}! Tu cuenta está lista.`);
             window.location.href = '/index.html'; 
-        });
-    }
-});
-
-// ==========================================
-// SISTEMA DE INICIO DE SESIÓN (LOGIN INTELIGENTE)
-// ==========================================
-document.addEventListener('DOMContentLoaded', () => {
-    const formLogin = document.getElementById('form-login');
-    const mensajeErrorLogin = document.getElementById('mensaje-error-login');
-
-    function mostrarErrorLogin(mensaje) {
-        if (mensajeErrorLogin) {
-            mensajeErrorLogin.textContent = mensaje;
-            mensajeErrorLogin.style.display = 'block';
-            setTimeout(() => { mensajeErrorLogin.style.display = 'none'; }, 4000);
-        } else {
-            alert(mensaje);
-        }
-    }
-
-    if (formLogin) {
-        formLogin.addEventListener('submit', (e) => {
-            e.preventDefault(); 
-
-            // Capturamos lo que el usuario escribió
-            const inputIdentificador = document.getElementById('login-identificador').value.trim().toLowerCase();
-            const password = document.getElementById('login-password').value;
-
-            // 🔥 LA PUERTA SECRETA DEL ADMINISTRADOR 🔥
-            // Si el nombre es "admin_mc" y la contraseña es tu clave secreta:
-            if (inputIdentificador === "admin_mc" && password === "Jefe2026*") {
-                // Te damos la Llave Maestra
-                localStorage.setItem('admin_mc_activo', 'true');
-                alert("👨‍💻 Bienvenido a la cabina de mando, Jefe.");
-                
-                // Pon aquí la ruta correcta de tu archivo de administrador
-                window.location.href = '/admin.html'; 
-                return; // Frenamos el código aquí para que no siga buscando como cliente
-            }
-
-            // ==================================================
-            // Si NO es el admin, sigue el código normal para clientes:
-            // ==================================================
-            let usuarios = JSON.parse(localStorage.getItem('usuarios_mc_db')) || [];
-
-            const usuarioEncontrado = usuarios.find(user => 
-                (user.correo.toLowerCase() === inputIdentificador || user.nombre.toLowerCase() === inputIdentificador) 
-                && user.password === password
-            );
-
-            if (!usuarioEncontrado) {
-                return mostrarErrorLogin("❌ Usuario, correo o contraseña incorrectos.");
-            }
-
-           // Pase VIP para cliente normal
-            localStorage.setItem('usuario_mc_activo', usuarioEncontrado.correo);
-            alert(`✅ ¡Qué bueno verte de nuevo, ${usuarioEncontrado.nombre}!`);
-            
-            // 👇 ESTA ES LA LÍNEA QUE CAMBIAS 👇
-            window.location.href = 'tienda.html'; 
         });
     }
 });
