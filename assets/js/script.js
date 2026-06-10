@@ -1,13 +1,13 @@
 
+// ==========================================
 // 🚀 CONEXIÓN A FIREBASE (BASE DE DATOS EN LA NUBE)
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
-import { getStorage } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-storage.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-storage.js";
 
-// ... (Abajo de esto dejas tu const firebaseConfig y la inicialización igualito a como lo tienes) ...
-
+// ... (Aquí dejas la configuración "firebaseConfig" exactamente igual a como la tienes) ...
 const firebaseConfig = {
     apiKey: "AIzaSyCe18DBeoTAo4VLcaDltvBG2WJdtljIRVQ",
     authDomain: "mc-productions-bbb58.firebaseapp.com",
@@ -469,7 +469,7 @@ function activarFiltrosTienda() {
 }
 
 // ==========================================
-// 6. PANEL DE ADMINISTRADOR (admin.html)
+// 🚀 6. PANEL DE ADMINISTRADOR (admin.html) - MOTOR FIREBASE
 // ==========================================
 const formAdmin = document.getElementById('form-admin');
 const mensajeAdmin = document.getElementById('mensaje-admin');
@@ -485,79 +485,115 @@ if (formAdmin) {
         const precio = document.getElementById('precio-track').value;
         
         const archivoImg = document.getElementById('img-track').files[0];
-        // AQUÍ EL CAMBIO 1: Agarramos TODOS los archivos, no solo el [0]
         const archivosAudio = document.getElementById('audio-track').files;
 
+        if (!archivoImg || archivosAudio.length === 0) {
+            if (mensajeAdmin) {
+                mensajeAdmin.textContent = "❌ Debes seleccionar la portada y el archivo de audio.";
+                mensajeAdmin.style.color = "#ff4d4d";
+                mensajeAdmin.style.display = "block";
+            }
+            return;
+        }
+
         try {
-            botonSubmit.textContent = 'PROCESANDO ARCHIVOS...';
+            // Animación de carga Premium
+            botonSubmit.textContent = '🚀 SUBIENDO A SERVIDORES...';
             botonSubmit.style.pointerEvents = 'none';
             botonSubmit.style.opacity = '0.7';
-
-            const base64Img = await leerArchivoComoURL(archivoImg);
             
-            // AQUÍ EL CAMBIO 2: Creamos el "Empacador" inteligente
+            if (mensajeAdmin) {
+                mensajeAdmin.textContent = "⏳ Subiendo archivos a la nube, por favor espera...";
+                mensajeAdmin.style.color = "#8a2be2";
+                mensajeAdmin.style.display = "block";
+            }
+
+            // --- FASE A: SUBIR PORTADA A FIREBASE STORAGE ---
+            const nombreUnicoImg = `${Date.now()}_${archivoImg.name}`;
+            const referenciaImg = ref(storage, `portadas/${nombreUnicoImg}`);
+            await uploadBytes(referenciaImg, archivoImg);
+            const urlImagenOficial = await getDownloadURL(referenciaImg);
+            
+            // --- FASE B: SUBIR AUDIO(S) A FIREBASE STORAGE ---
             let datosAudio; 
 
             if (categoria === 'ALBUMES') {
-                // Si es un álbum, empacamos todas las canciones en una lista
+                // Si es un álbum, subimos todas las canciones y guardamos sus links en una lista
                 datosAudio = [];
                 for (let i = 0; i < archivosAudio.length; i++) {
                     const archivo = archivosAudio[i];
-                    const base64 = await leerArchivoComoURL(archivo);
+                    const nombreUnicoAudio = `${Date.now()}_${archivo.name}`;
+                    const referenciaAudio = ref(storage, `canciones/${nombreUnicoAudio}`);
                     
-                    // Guardamos el nombre de la canción (quitándole el .mp3 del final)
+                    // Subir archivo individual
+                    await uploadBytes(referenciaAudio, archivo);
+                    const urlAudioOficial = await getDownloadURL(referenciaAudio);
+
+                    // Limpiar el nombre (quitar .mp3)
                     const nombrePista = archivo.name.replace(/\.[^/.]+$/, ""); 
 
                     datosAudio.push({
-                        tituloPista: nombrePista,
-                        base64: base64
+                        tituloPista: nombrePista.toUpperCase(),
+                        url: urlAudioOficial
                     });
                 }
             } else {
-                // Si es single, lo guardamos normal como texto para no dañar los viejos
-                datosAudio = await leerArchivoComoURL(archivosAudio[0]);
+                // Si es single, subimos solo la primera canción
+                const archivoUnico = archivosAudio[0];
+                const nombreUnicoAudio = `${Date.now()}_${archivoUnico.name}`;
+                const referenciaAudio = ref(storage, `canciones/${nombreUnicoAudio}`);
+                
+                await uploadBytes(referenciaAudio, archivoUnico);
+                datosAudio = await getDownloadURL(referenciaAudio);
             }
 
+            // --- FASE C: GUARDAR PRODUCTO EN FIRESTORE (NUBE) ---
             const nuevoProducto = {
-                id: "track_" + Date.now(),
                 titulo: titulo.toUpperCase(),
                 artista: artista.toUpperCase(),
                 categoria: categoria,
                 precio: parseFloat(precio).toFixed(2),
-                img: base64Img,
-                audio: datosAudio // Ahora esto puede ser 1 canción o una lista entera de 15 canciones
+                img: urlImagenOficial,
+                audio: datosAudio, // Puede ser el link directo (string) o la lista de canciones (array)
+                fechaPublicacion: serverTimestamp() // Fecha del servidor de Google
             };
 
-            const db = await abrirBaseDeDatos();
-            const transaccion = db.transaction([storeName], "readwrite");
-            const almacen = transaccion.objectStore(storeName);
-            almacen.add(nuevoProducto);
+            // Guardamos en la colección oficial de tu catálogo
+            await addDoc(collection(db, "catalogo_musica"), nuevoProducto);
 
-            transaccion.oncomplete = () => {
-                mensajeAdmin.textContent = "¡Track/Álbum subido con éxito a la base de datos!";
-                mensajeAdmin.style.color = "#8a2be2";
+            // Éxito absoluto
+            if (mensajeAdmin) {
+                mensajeAdmin.textContent = "✅ ¡Track/Álbum publicado con éxito en la nube de Firebase!";
+                mensajeAdmin.style.color = "#28a745";
                 mensajeAdmin.style.display = "block";
-                formAdmin.reset();
+            }
+            
+            formAdmin.reset();
 
-                if(typeof cargarTracksAdmin === 'function') cargarTracksAdmin();
-                
-                // Reiniciar el botón de subir archivos a su estado normal por seguridad
-                const inputAudio = document.getElementById('audio-track');
-                inputAudio.removeAttribute('multiple');
-                const textoMultiples = document.getElementById('texto-multiples');
-                if(textoMultiples) textoMultiples.style.display = 'none';
-            };
+            // Llamar al actualizador visual de la lista si existe
+            if (typeof cargarTracksAdmin === 'function') cargarTracksAdmin();
+            
+            // Apagar la opción múltiple del input por seguridad
+            const inputAudio = document.getElementById('audio-track');
+            if (inputAudio) inputAudio.removeAttribute('multiple');
+            
+            const textoMultiples = document.getElementById('texto-multiples');
+            if (textoMultiples) textoMultiples.style.display = 'none';
 
         } catch (error) {
-            console.error(error);
-            mensajeAdmin.textContent = "Error al procesar el archivo.";
-            mensajeAdmin.style.color = "#ff4d4d";
-            mensajeAdmin.style.display = "block";
+            console.error("Error al subir a Firebase:", error);
+            if (mensajeAdmin) {
+                mensajeAdmin.textContent = "❌ Error al procesar o subir los archivos.";
+                mensajeAdmin.style.color = "#ff4d4d";
+                mensajeAdmin.style.display = "block";
+            }
         } finally {
             botonSubmit.textContent = 'PUBLICAR EN LA TIENDA';
             botonSubmit.style.pointerEvents = 'auto';
             botonSubmit.style.opacity = '1';
-            setTimeout(() => { mensajeAdmin.style.display = "none"; }, 4000);
+            setTimeout(() => { 
+                if (mensajeAdmin) mensajeAdmin.style.display = "none"; 
+            }, 5000);
         }
     });
 }
