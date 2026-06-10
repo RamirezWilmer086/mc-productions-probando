@@ -330,109 +330,122 @@ if (formPago) {
 }
 
 // ==========================================
-// 5. MOTOR DE LA TIENDA (Dibuja los productos)
+// 🛒 5. MOTOR DE LA TIENDA - FIREBASE CLOUD
 // ==========================================
 const contenedorTienda = document.querySelector('.grid-albumes');
 
 if (contenedorTienda) {
     async function cargarTienda() {
         try {
-            const db = await abrirBaseDeDatos();
-            const transaccion = db.transaction([storeName], "readonly");
-            const almacen = transaccion.objectStore(storeName);
-            const peticion = almacen.getAll(); 
+            contenedorTienda.innerHTML = '<p style="color: #8a2be2; text-align: center; width: 100%; grid-column: 1 / -1;">⏳ Conectando con los servidores de MC Productions...</p>';
+            
+            // --- CONEXIÓN DIRECTA A LA NUBE ---
+            const querySnapshot = await getDocs(collection(db, "catalogo_musica"));
+            contenedorTienda.innerHTML = ''; 
 
-            peticion.onsuccess = () => {
-                const canciones = peticion.result;
+            if (querySnapshot.empty) {
+                contenedorTienda.innerHTML = '<p style="color: gray; text-align: center; width: 100%; grid-column: 1 / -1;">El catálogo está vacío por el momento.</p>';
+                return;
+            }
 
-                if (canciones.length > 0) {
-                    contenedorTienda.innerHTML = ''; 
-                }
+            // --- LEER Y DIBUJAR CADA CANCIÓN ---
+            querySnapshot.forEach(documento => {
+                const track = documento.data();
+                track.id = documento.id; // Le pegamos el ID de Firebase para el carrito
 
-                canciones.forEach(track => {
-                    const articulo = document.createElement('article');
-                    articulo.classList.add('album');
-                    articulo.setAttribute('data-categoria', track.categoria); 
-                    
-                    // --- CEREBRO DIGITAL: DISCRIMINADOR DE DISEÑO ---
-                    let bloqueAudioHTML = '';
-                    
-                    if (track.categoria === 'ALBUMES' && Array.isArray(track.audio)) {
-                        // DISEÑO PREMIUM ESTILO PLAYLIST (SPOTIFY/APPLE MUSIC)
-                        bloqueAudioHTML = `
-                            <div class="tracklist-contenedor" style="margin-top: 15px; margin-bottom: 15px; text-align: left; background: rgba(9, 3, 15, 0.6); padding: 12px; border-radius: 8px; border: 1px solid var(--borde-tarjeta); max-height: 180px; overflow-y: auto;">
-                        `;
-                        
-                        track.audio.forEach((pista, index) => {
-                            bloqueAudioHTML += `
-                                <div class="track-row" style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
-                                    <p style="font-size: 12px; color: #ffffff; margin-bottom: 5px; font-weight: 500; font-family: sans-serif;">
-                                        <span style="color: var(--color-primario); font-weight: bold;">${index + 1}.</span> ${pista.tituloPista}
-                                    </p>
-                                    <audio controls controlsList="nodownload" oncontextmenu="return false;" src="${pista.base64}" style="width: 100%; height: 28px;"></audio>
-                                </div>
-                            `;
-                        });
-                        
-                        bloqueAudioHTML += `</div>`;
-                    } else {
-                        // DISEÑO TRADICIONAL PARA SINGLES
-                        const audioSrc = typeof track.audio === 'string' ? track.audio : (track.audio && track.audio[0] ? track.audio[0].base64 : '');
-                        bloqueAudioHTML = `
-                            <audio controls controlsList="nodownload" oncontextmenu="return false;" src="${audioSrc}" style="width: 100%; margin-top: 10px; margin-bottom: 10px;"></audio>
-                        `;
-                    }
-                    
-                    // Inyectamos la estructura final en la tarjeta
-                    articulo.innerHTML = `
-                        <img src="${track.img}" alt="Portada de ${track.titulo}">
-                        <h4>${track.artista}</h4>
-                        <p>${track.titulo} <span style="font-size: 11px; color: var(--color-primario);">[${track.categoria}]</span></p>
-                        
-                        ${bloqueAudioHTML}
-                        
-                        <p class="precio">$${track.precio}</p>
-                        <button class="btn-comprar">AGREGAR AL CARRITO</button>
+                const articulo = document.createElement('article');
+                articulo.classList.add('album');
+                articulo.setAttribute('data-categoria', track.categoria); 
+                
+                // --- CEREBRO DIGITAL: DISCRIMINADOR DE DISEÑO ---
+                let bloqueAudioHTML = '';
+                
+                if (track.categoria === 'ALBUMES' && Array.isArray(track.audio)) {
+                    // DISEÑO PREMIUM ESTILO PLAYLIST (SPOTIFY/APPLE MUSIC)
+                    bloqueAudioHTML = `
+                        <div class="tracklist-contenedor" style="margin-top: 15px; margin-bottom: 15px; text-align: left; background: rgba(9, 3, 15, 0.6); padding: 12px; border-radius: 8px; border: 1px solid var(--borde-tarjeta); max-height: 180px; overflow-y: auto;">
                     `;
                     
-                    contenedorTienda.appendChild(articulo);
-
-                    const btnComprar = articulo.querySelector('.btn-comprar');
-                    btnComprar.addEventListener('click', () => {
-                        agregarAlCarrito(track); 
-                        
-                        const textoOriginal = btnComprar.textContent;
-                        btnComprar.textContent = '¡AGREGADO!';
-                        btnComprar.style.backgroundColor = 'var(--color-primario)';
-                        btnComprar.style.color = 'white';
-                        setTimeout(() => {
-                            btnComprar.textContent = textoOriginal;
-                            btnComprar.style.backgroundColor = 'transparent';
-                        }, 2000);
+                    track.audio.forEach((pista, index) => {
+                        bloqueAudioHTML += `
+                            <div class="track-row" style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+                                <p style="font-size: 12px; color: #ffffff; margin-bottom: 5px; font-weight: 500; font-family: sans-serif;">
+                                    <span style="color: var(--color-primario); font-weight: bold;">${index + 1}.</span> ${pista.tituloPista}
+                                </p>
+                                <audio controls controlsList="nodownload" oncontextmenu="return false;" src="${pista.url}" style="width: 100%; height: 28px;"></audio>
+                            </div>
+                        `;
                     });
-                });
-
-                // --- TUS FUNCIONES VITALES INTACTAS ---
-                if (typeof activarFiltrosTienda === 'function') {
-                    activarFiltrosTienda();
+                    
+                    bloqueAudioHTML += `</div>`;
+                } else {
+                    // DISEÑO TRADICIONAL PARA SINGLES
+                    // Ahora track.audio es un link directo de Firebase (String)
+                    const audioSrc = track.audio; 
+                    bloqueAudioHTML = `
+                        <audio controls controlsList="nodownload" oncontextmenu="return false;" src="${audioSrc}" style="width: 100%; margin-top: 10px; margin-bottom: 10px;"></audio>
+                    `;
                 }
+                
+                // Inyectamos la estructura final en la tarjeta
+                articulo.innerHTML = `
+                    <img src="${track.img}" alt="Portada de ${track.titulo}">
+                    <h4>${track.artista}</h4>
+                    <p>${track.titulo} <span style="font-size: 11px; color: var(--color-primario);">[${track.categoria}]</span></p>
+                    
+                    ${bloqueAudioHTML}
+                    
+                    <p class="precio">$${track.precio}</p>
+                    <button class="btn-comprar">AGREGAR AL CARRITO</button>
+                `;
+                
+                contenedorTienda.appendChild(articulo);
 
-                const nuevosAudios = document.querySelectorAll('audio');
-                nuevosAudios.forEach(audio => {
-                    audio.addEventListener('play', () => {
-                        nuevosAudios.forEach(otro => { if (otro !== audio) otro.pause(); });
-                    });
-                    audio.addEventListener('timeupdate', () => {
-                        if (audio.currentTime >= 30) {
-                            audio.pause();           
-                            audio.currentTime = 0;   
-                            mostrarAlertaElegante("¡Preview finalizado! Agrega el track al carrito.");
-                        }
-                    });
+                // --- LÓGICA DEL BOTÓN COMPRAR ---
+                const btnComprar = articulo.querySelector('.btn-comprar');
+                btnComprar.addEventListener('click', () => {
+                    agregarAlCarrito(track); 
+                    
+                    const textoOriginal = btnComprar.textContent;
+                    btnComprar.textContent = '¡AGREGADO!';
+                    btnComprar.style.backgroundColor = 'var(--color-primario)';
+                    btnComprar.style.color = 'white';
+                    setTimeout(() => {
+                        btnComprar.textContent = textoOriginal;
+                        btnComprar.style.backgroundColor = 'transparent';
+                    }, 2000);
                 });
-            };
+            });
+
+            // --- TUS FUNCIONES VITALES INTACTAS ---
+            if (typeof activarFiltrosTienda === 'function') {
+                activarFiltrosTienda();
+            }
+
+            // Sistema Anti-Piratería y Anti-Superposición
+            const nuevosAudios = document.querySelectorAll('audio');
+            nuevosAudios.forEach(audio => {
+                audio.addEventListener('play', () => {
+                    // Pausa los demás
+                    nuevosAudios.forEach(otro => { if (otro !== audio) otro.pause(); });
+                });
+                audio.addEventListener('timeupdate', () => {
+                    // Limita a 30 segundos
+                    if (audio.currentTime >= 30) {
+                        audio.pause();           
+                        audio.currentTime = 0;   
+                        if (typeof mostrarAlertaElegante === 'function') {
+                            mostrarAlertaElegante("¡Preview finalizado! Agrega el track al carrito.");
+                        } else {
+                            alert("¡Preview finalizado! Agrega el track al carrito.");
+                        }
+                    }
+                });
+            });
+
         } catch (error) {
-            console.error("Error al cargar la tienda:", error);
+            console.error("Error al cargar la tienda desde Firebase:", error);
+            contenedorTienda.innerHTML = '<p style="color: red; text-align: center; width: 100%; grid-column: 1 / -1;">❌ Error de conexión. No se pudo cargar el catálogo.</p>';
         }
     }
 
