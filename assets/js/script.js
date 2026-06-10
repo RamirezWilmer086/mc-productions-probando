@@ -815,8 +815,7 @@ async function cargarTracksAdmin() {
 
             div.innerHTML = `
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <img src="${track.portada}" style="width: 50px; height: 50px; border-radius: 5px; object-fit: cover; border: 1px solid #8a2be2;">
-                    <div>
+                    <img src="${track.img}" style="width: 50px; height: 50px; border-radius: 5px; object-fit: cover; border: 1px solid #8a2be2;">
                         <h4 style="color: white; margin: 0; font-size: 16px;">${track.titulo}</h4>
                         <p style="color: #aaa; margin: 5px 0 0 0; font-size: 12px; font-weight: bold;">
                             ${track.artista} | <span style="color: #28a745;">$${track.precio}</span> | ${track.categoria}
