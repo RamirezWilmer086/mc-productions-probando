@@ -3,7 +3,7 @@
 // 🚀 CONEXIÓN A FIREBASE (BASE DE DATOS EN LA NUBE)
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc, serverTimestamp, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-storage.js";
 
@@ -782,111 +782,91 @@ if (formLogin) {
     });
 }
 // ==========================================
-// GESTOR DE ADMINISTRADOR: ELIMINAR TRACKS
+// 👁️ VISOR Y GESTOR DE CATÁLOGO (ADMIN) EN FIREBASE
 // ==========================================
 const listaAdminTracks = document.getElementById('lista-admin-tracks');
+const cabeceraGestor = document.getElementById('cabecera-gestor');
+const iconoDesplegable = document.getElementById('icono-desplegable');
 
+// Función maestra para leer la nube y pintar la lista
 async function cargarTracksAdmin() {
-    if (!listaAdminTracks) return; // Si no estamos en la página admin, ignorar
+    if (!listaAdminTracks) return;
+
+    listaAdminTracks.innerHTML = '<p style="color: #8a2be2; text-align: center; font-weight: bold;">⏳ Conectando con la bóveda de Google...</p>';
 
     try {
-        const db = await abrirBaseDeDatos();
-        const transaccion = db.transaction([storeName], "readonly");
-        const almacen = transaccion.objectStore(storeName);
-        const peticion = almacen.getAll();
+        // Traemos toda la colección de música de una vez
+        const querySnapshot = await getDocs(collection(db, "catalogo_musica"));
+        listaAdminTracks.innerHTML = ''; // Limpiamos el mensaje de carga
 
-        peticion.onsuccess = () => {
-            const canciones = peticion.result;
-            listaAdminTracks.innerHTML = ''; // Limpiamos la lista para no duplicar
+        if (querySnapshot.empty) {
+            listaAdminTracks.innerHTML = '<p style="color: #ff4d4d; text-align: center;">No hay música en la nube todavía.</p>';
+            return;
+        }
 
-            if (canciones.length === 0) {
-                listaAdminTracks.innerHTML = '<p style="color: gray; font-size: 14px;">No hay música subida en la base de datos todavía.</p>';
-                return;
-            }
+        // Leemos cada documento de la base de datos
+        querySnapshot.forEach((documento) => {
+            const track = documento.data();
+            const trackId = documento.id; // El ID encriptado de Google
 
-            // Dibujar cada canción en la lista
-            canciones.forEach(track => {
-                const item = document.createElement('div');
-                item.style.cssText = "display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.05);";
-                
-                // Saber si es álbum para mostrar cuántas pistas tiene
-                const esAlbum = track.categoria === 'ALBUMES' && Array.isArray(track.audio);
-                const infoExtra = esAlbum ? `<span style="color: "#8a2be2"; font-size: 11px;">(${track.audio.length} pistas)</span>` : '';
+            // Creamos la tarjeta visual de la canción
+            const div = document.createElement('div');
+            div.style.cssText = "background: rgba(0,0,0,0.4); margin-bottom: 10px; padding: 15px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.1);";
 
-                item.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <img src="${track.img}" style="width: 45px; height: 45px; border-radius: 4px; object-fit: cover; border: 1px solid var(--color-primario);">
-                        <div>
-                            <p style="margin: 0; font-weight: bold; font-size: 14px; color: white;">${track.titulo} ${infoExtra}</p>
-                            <p style="margin: 0; font-size: 12px; color: #a0a0a0;">${track.artista} - $${track.precio}</p>
-                        </div>
+            div.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <img src="${track.portada}" style="width: 50px; height: 50px; border-radius: 5px; object-fit: cover; border: 1px solid #8a2be2;">
+                    <div>
+                        <h4 style="color: white; margin: 0; font-size: 16px;">${track.titulo}</h4>
+                        <p style="color: #aaa; margin: 5px 0 0 0; font-size: 12px; font-weight: bold;">
+                            ${track.artista} | <span style="color: #28a745;">$${track.precio}</span> | ${track.categoria}
+                        </p>
                     </div>
-                    <button class="btn-eliminar-track" data-id="${track.id}" style="background: #ff4d4d; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; transition: 0.3s;">
-                        <i class="fas fa-trash"></i> ELIMINAR
-                    </button>
-                `;
-
-                listaAdminTracks.appendChild(item);
-            });
-
-            // Darle el poder de borrar a los botones rojos
-            const botonesEliminar = document.querySelectorAll('.btn-eliminar-track');
-            botonesEliminar.forEach(boton => {
-                boton.addEventListener('click', async (e) => {
-                    const idEliminar = e.target.closest('.btn-eliminar-track').getAttribute('data-id');
-                    
-                    // Pregunta de seguridad antes de borrar
-                    if(confirm('🚨 ¿Estás seguro de que deseas eliminar este track o álbum? Se borrará de la tienda inmediatamente.')) {
-                        await eliminarTrackDeDB(idEliminar);
-                    }
-                });
-            });
-        };
-    } catch (error) {
-        console.error("Error al cargar el gestor:", error);
-    }
-}
-
-async function eliminarTrackDeDB(id) {
-    try {
-        const db = await abrirBaseDeDatos();
-        const transaccion = db.transaction([storeName], "readwrite");
-        const almacen = transaccion.objectStore(storeName);
-        
-        const peticion = almacen.delete(id);
-        
-        peticion.onsuccess = () => {
-            cargarTracksAdmin(); // Recargar la lista visual al instante
-            alert("✅ Eliminado correctamente de la base de datos.");
-        };
-    } catch (error) {
-        console.error("Error al intentar eliminar:", error);
-    }
-}
-
-// Ejecutar automáticamente cuando cargue la página
-document.addEventListener('DOMContentLoaded', cargarTracksAdmin);
-
-// --- LÓGICA DEL MENÚ DESPLEGABLE DEL GESTOR ---
-document.addEventListener('DOMContentLoaded', () => {
-    const cabeceraGestor = document.getElementById('cabecera-gestor');
-    const listaAdminTracksContenedor = document.getElementById('lista-admin-tracks');
-    const iconoDesplegable = document.getElementById('icono-desplegable');
-
-    if (cabeceraGestor && listaAdminTracksContenedor && iconoDesplegable) {
-        cabeceraGestor.addEventListener('click', () => {
-            // Si está oculto, lo mostramos y giramos la flecha
-            if (listaAdminTracksContenedor.style.display === 'none') {
-                listaAdminTracksContenedor.style.display = 'block';
-                iconoDesplegable.style.transform = 'rotate(180deg)';
-            } else {
-                // Si está visible, lo ocultamos y volvemos la flecha a su lugar
-                listaAdminTracksContenedor.style.display = 'none';
-                iconoDesplegable.style.transform = 'rotate(0deg)';
-            }
+                </div>
+                <button class="btn-eliminar-admin" data-id="${trackId}" style="background: #ff4d4d; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s;">🗑️ ELIMINAR</button>
+            `;
+            listaAdminTracks.appendChild(div);
         });
+
+        // 🎯 Darle vida a los botones rojos de eliminar
+        document.querySelectorAll('.btn-eliminar-admin').forEach(boton => {
+            boton.addEventListener('click', async (e) => {
+                const idBorrar = e.target.getAttribute('data-id');
+                if(confirm("⚠️ ¿Estás seguro de que quieres borrar esta obra maestra de la tienda pública?")) {
+                    e.target.textContent = "Borrando...";
+                    e.target.style.opacity = "0.5";
+                    
+                    // Dispara la orden de eliminación a la nube
+                    await deleteDoc(doc(db, "catalogo_musica", idBorrar));
+                    
+                    // Recarga la lista automáticamente
+                    cargarTracksAdmin(); 
+                }
+            });
+        });
+
+    } catch (error) {
+        console.error("Error al cargar la bóveda:", error);
+        listaAdminTracks.innerHTML = '<p style="color: red; text-align: center;">❌ Error al leer los datos de Firebase.</p>';
     }
-});
+}
+
+// 🎛️ Control del botón desplegable
+if (cabeceraGestor) {
+    cabeceraGestor.addEventListener('click', () => {
+        if (listaAdminTracks.style.display === 'none' || listaAdminTracks.style.display === '') {
+            listaAdminTracks.style.display = 'block';
+            if (iconoDesplegable) iconoDesplegable.style.transform = 'rotate(180deg)';
+            cargarTracksAdmin(); // Solo gasta datos de Google cuando lo abres
+        } else {
+            listaAdminTracks.style.display = 'none';
+            if (iconoDesplegable) iconoDesplegable.style.transform = 'rotate(0deg)';
+        }
+    });
+}
+
+// Hacemos la función global para que el formulario la llame automáticamente tras subir un track
+window.cargarTracksAdmin = cargarTracksAdmin;
 
 // ==========================================
 // BÓVEDA PRIVADA CONECTADA A INDEXEDDB (VERSIÓN DEFINITIVA Y SEGURA)
