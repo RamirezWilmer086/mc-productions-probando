@@ -176,16 +176,12 @@ function actualizarPantallaCarrito() {
     if (!contenedorCarrito) return; 
 
     if (carrito.length === 0) {
-        contenedorCarrito.innerHTML += `
-            <article class="item-carrito" data-index="${index}">
-                <img src="${item.img || ''}" alt="Portada de ${item.titulo}">
-                <div class="info-carrito">
-                    <h3>${item.titulo}</h3>
-                    <p>${item.artista} <span style="font-size: 10px; background: rgba(138, 43, 226, 0.2); padding: 2px 6px; border-radius: 4px; border: 1px solid #8a2be2; margin-left: 5px;">${item.categoria}</span></p>
-                </div>
-                <p class="precio-carrito">$${item.precio}</p>
-                <button class="btn-eliminar"><i class='bx bx-trash' style="font-size: 20px;"></i></button>
-            </article>
+        contenedorCarrito.innerHTML = `
+            <div class="carrito-vacio" style="text-align: center; padding: 50px 20px;">
+                <i class='bx bx-cart' style="font-size: 60px; color: var(--texto-secundario); margin-bottom: 15px;"></i>
+                <h3 style="color: var(--texto-secundario); margin-bottom: 20px;">Tu carrito está vacío</h3>
+                <a href="tienda.html" class="btn-primario" style="text-decoration: none; display: inline-block;">IR A LA TIENDA</a>
+            </div>
         `;
         if (elementoTotal) elementoTotal.textContent = '$0.00';
         return;
@@ -198,12 +194,20 @@ function actualizarPantallaCarrito() {
         const precioNumero = parseFloat(String(item.precio).replace('$', ''));
         totalDinero += precioNumero;
 
+        // Por si alguna canción vieja no tiene categoría, evitamos que salga en blanco
+        const etiquetaCategoria = item.categoria ? item.categoria : 'SINGLE';
+
         contenedorCarrito.innerHTML += `
             <article class="item-carrito" data-index="${index}">
-                <img src="${item.img}" alt="Album">
+                <img src="${item.img || ''}" alt="Portada" style="width: 55px; height: 55px; object-fit: cover; border-radius: 5px; border: 1px solid rgba(138, 43, 226, 0.3);">
                 <div class="info-carrito">
                     <h3>${item.titulo}</h3>
-                    <p>${item.artista}</p>
+                    <p style="display: flex; align-items: center; gap: 8px;">
+                        ${item.artista} 
+                        <span style="font-size: 9px; background: rgba(138, 43, 226, 0.2); padding: 3px 6px; border-radius: 4px; border: 1px solid #8a2be2; color: white; font-weight: bold; letter-spacing: 1px;">
+                            ${etiquetaCategoria}
+                        </span>
+                    </p>
                 </div>
                 <p class="precio-carrito">$${item.precio}</p>
                 <button class="btn-eliminar"><i class='bx bx-trash' style="font-size: 20px;"></i></button>
