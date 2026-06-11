@@ -1106,45 +1106,45 @@ document.addEventListener('DOMContentLoaded', async () => {
             perfilImg.src = avatarGuardado;
         }
 
-        // --- 3. CONECTAR CON FIREBASE PARA DATOS REALES ---
+        // ==========================================
+        // --- 3. CONECTAR CON FIREBASE PARA DATOS REALES (PARCHE TURBO) ---
         try {
-            let nombreMostrar = "Cargando...";
-            let fechaMostrar = "--/--/----";
+        // 🚀 ACCIÓN INMEDIATA: Pintamos el nombre y correo usando la memoria local de la sesión activa
+            if (datosLocales && datosLocales.nombre) {
+                perfilNombre.textContent = datosLocales.nombre;
+            } else if (usuarioActivo === "admin@mc.com" || usuarioActivo === "admin_mc") {
+                perfilNombre.textContent = "EL JEFE (ADMIN)";
+            } else {
+                perfilNombre.textContent = "Cliente VIP";
+            }
 
-            // Usamos el Token de Firebase que guardamos en el login para buscar en la bóveda
+            const elementoCorreo = document.getElementById('perfil-correo');
+            if(elementoCorreo) elementoCorreo.textContent = usuarioActivo;
+
+            // ☁️ BÚSQUEDA EN SEGUNDO PLANO: Vamos a la nube de Google solo por la fecha de registro
             if (datosLocales && datosLocales.token && datosLocales.token.includes('firebase_')) {
                 const uid = datosLocales.token.replace('firebase_', '');
-                
-                // Vamos a la nube de Google a buscar los datos
                 const docRef = doc(db, "usuarios", uid);
                 const docSnap = await getDoc(docRef);
 
                 if (docSnap.exists()) {
                     const datosNube = docSnap.data();
-                    nombreMostrar = datosNube.nombre || "Cliente VIP";
                     
+                    // Si encontramos la fecha en Firebase, la pintamos de inmediato
                     if (datosNube.fechaRegistro) {
                         const fecha = new Date(datosNube.fechaRegistro);
-                        fechaMostrar = fecha.toLocaleDateString(); // Formatea la fecha bonito
+                        const elementoFecha = document.getElementById('perfil-fecha');
+                        if (elementoFecha) elementoFecha.textContent = fecha.toLocaleDateString();
                     }
                 }
             } else if (usuarioActivo === "admin@mc.com" || usuarioActivo === "admin_mc") {
-                nombreMostrar = "EL JEFE (ADMIN)";
-                fechaMostrar = "Día 1";
+                const elementoFecha = document.getElementById('perfil-fecha');
+                if (elementoFecha) elementoFecha.textContent = "Día 1";
             }
-
-            // Imprimimos los datos en la pantalla
-            perfilNombre.textContent = nombreMostrar;
-            
-            const elementoCorreo = document.getElementById('perfil-correo');
-            if(elementoCorreo) elementoCorreo.textContent = usuarioActivo;
-            
-            const elementoFecha = document.getElementById('perfil-fecha');
-            if(elementoFecha) elementoFecha.textContent = fechaMostrar;
 
         } catch (error) {
             console.error("Error cargando perfil desde la nube:", error);
-            perfilNombre.textContent = "Usuario Conectado";
+            // Si el internet o la nube fallan, el nombre ya se pintó arriba de forma segura 🚀
         }
 
         // --- 4. LÓGICA DE CERRAR SESIÓN SEGURA ---
