@@ -977,60 +977,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// PROCESAR PAGO Y TRANSFERIR A BÓVEDA 
-// ==========================================
-function procesarPagoCarrito(evento) {
-    // 1. Freno de mano: Evita que el formulario recargue la página
-    if (evento) {
-        evento.preventDefault(); 
-    }
-
-    const usuarioActivo = localStorage.getItem('usuario_mc_activo');
-    
-    // 2. Verificamos que esté logueado
-    if (!usuarioActivo) {
-        alert("🔒 Debes iniciar sesión para procesar la compra.");
-        window.location.href = '/assets/pages/login.html';
-        return;
-    }
-
-    // 3. Rescatamos el carrito directamente de la memoria dura del navegador
-    let carritoGuardado = JSON.parse(localStorage.getItem('carrito')) || [];
-    
-    // Si la memoria dura está vacía, intentamos con la variable de la página
-    if (carritoGuardado.length === 0) {
-        if (typeof carrito !== 'undefined' && carrito.length > 0) {
-            carritoGuardado = carrito;
-        } else {
-            alert("⚠️ Tu carrito de compras parece estar vacío. Ve a la tienda y agrega música.");
-            return;
-        }
-    }
-
-    // 4. Traemos el casillero de compras de este usuario específico
-    const claveCompras = 'compras_' + usuarioActivo;
-    let comprasAnteriores = JSON.parse(localStorage.getItem(claveCompras)) || [];
-    
-    // 5. Sumamos la música vieja con la música nueva
-    let nuevasCompras = comprasAnteriores.concat(carritoGuardado);
-    
-    // 6. ¡GUARDAMOS CON CANDADO EN LA BASE DE DATOS LOCAL!
-    localStorage.setItem(claveCompras, JSON.stringify(nuevasCompras));
-
-    // 7. Vaciamos el carrito porque ya se cobró todo
-    localStorage.setItem('carrito', '[]'); 
-    if (typeof carrito !== 'undefined') {
-        carrito = [];
-    }
-    if (typeof actualizarCarritoUI === 'function') {
-        actualizarCarritoUI();
-    }
-    
-    // 8. Celebramos y viajamos a la Bóveda
-    alert("✅ ¡Pago exitoso! Tu música ha sido enviada a tu Biblioteca Privada.");
-    window.location.href = '/assets/pages/biblioteca.html';
-}
-
 // ==========================================
 // SISTEMA DE REGISTRO PARA CLIENTES REALES
 // ==========================================
@@ -1351,7 +1297,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tiempoPasado = tiempoActual - parseInt(tiempoSesion);
 
         // ⏱️ Configuración del límite: 12 horas (puedes cambiar el 12 por 24 si quieres un día entero)
-        const limiteHoras = 0.0050;
+        const limiteHoras = 1;
         const limiteMilisegundos = limiteHoras * 60 * 60 * 1000;
 
         // Si el tiempo pasado es mayor al límite permitido...
