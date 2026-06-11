@@ -1073,15 +1073,17 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================
-// CEREBRO DEL PERFIL DE USUARIO
+// 👤 CEREBRO DEL PERFIL DE USUARIO Y AVATAR (FIREBASE)
 // ==========================================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     
-    // Verificamos si estamos en la página de perfil (buscando un elemento específico)
     const perfilNombre = document.getElementById('perfil-nombre');
+    const perfilImg = document.getElementById('perfil-img');
+    const inputAvatar = document.getElementById('input-avatar');
     
     if (perfilNombre) {
         const usuarioActivo = localStorage.getItem('usuario_mc_activo');
+        const datosLocales = JSON.parse(localStorage.getItem('mc_usuario_activo'));
         
         // Si nadie inició sesión, lo mandamos al login
         if (!usuarioActivo) {
@@ -1089,39 +1091,107 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 1. Extraemos los datos del usuario de la base de datos
-        let usuarios = JSON.parse(localStorage.getItem('usuarios_mc_db')) || [];
-        const misDatos = usuarios.find(user => user.correo === usuarioActivo);
-
-        // 2. Extraemos cuántas canciones ha comprado
+        // --- 1. CARGAR CANTIDAD DE TRACKS COMPRADOS ---
         const claveCompras = 'compras_' + usuarioActivo;
         const misCompras = JSON.parse(localStorage.getItem(claveCompras)) || [];
-
-        // 3. Imprimimos los datos en la pantalla
-        if (misDatos) {
-            document.getElementById('perfil-nombre').textContent = misDatos.nombre;
-            document.getElementById('perfil-correo').textContent = misDatos.correo;
-            document.getElementById('perfil-fecha').textContent = misDatos.fechaRegistro || 'Reciente';
-            document.getElementById('perfil-tracks').textContent = `${misCompras.length} Tracks`;
+        const elementoTracks = document.getElementById('perfil-tracks');
+        if (elementoTracks) {
+            elementoTracks.textContent = `${misCompras.length} Tracks`;
         }
 
-        // 4. LÓGICA DE CERRAR SESIÓN
+        // --- 2. CARGAR FOTO DE PERFIL (AVATAR) ---
+        const claveAvatar = 'avatar_' + usuarioActivo;
+        const avatarGuardado = localStorage.getItem(claveAvatar);
+        if (avatarGuardado && perfilImg) {
+            perfilImg.src = avatarGuardado;
+        }
+
+        // --- 3. CONECTAR CON FIREBASE PARA DATOS REALES ---
+        try {
+            let nombreMostrar = "Cargando...";
+            let fechaMostrar = "--/--/----";
+
+            // Usamos el Token de Firebase que guardamos en el login para buscar en la bóveda
+            if (datosLocales && datosLocales.token && datosLocales.token.includes('firebase_')) {
+                const uid = datosLocales.token.replace('firebase_', '');
+                
+                // Vamos a la nube de Google a buscar los datos
+                const docRef = doc(db, "usuarios", uid);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const datosNube = docSnap.data();
+                    nombreMostrar = datosNube.nombre || "Cliente VIP";
+                    
+                    if (datosNube.fechaRegistro) {
+                        const fecha = new Date(datosNube.fechaRegistro);
+                        fechaMostrar = fecha.toLocaleDateString(); // Formatea la fecha bonito
+                    }
+                }
+            } else if (usuarioActivo === "admin@mc.com" || usuarioActivo === "admin_mc") {
+                nombreMostrar = "EL JEFE (ADMIN)";
+                fechaMostrar = "Día 1";
+            }
+
+            // Imprimimos los datos en la pantalla
+            perfilNombre.textContent = nombreMostrar;
+            
+            const elementoCorreo = document.getElementById('perfil-correo');
+            if(elementoCorreo) elementoCorreo.textContent = usuarioActivo;
+            
+            const elementoFecha = document.getElementById('perfil-fecha');
+            if(elementoFecha) elementoFecha.textContent = fechaMostrar;
+
+        } catch (error) {
+            console.error("Error cargando perfil desde la nube:", error);
+            perfilNombre.textContent = "Usuario Conectado";
+        }
+
+        // --- 4. LÓGICA DE CERRAR SESIÓN SEGURA ---
         const btnCerrarSesion = document.getElementById('btn-cerrar-sesion');
         if (btnCerrarSesion) {
             btnCerrarSesion.addEventListener('click', () => {
                 const confirmar = confirm("¿Estás seguro de que quieres cerrar sesión?");
                 if (confirmar) {
-                    // Borramos la "Llave VIP"
+                    // Borramos TODAS las llaves de seguridad al salir
                     localStorage.removeItem('usuario_mc_activo');
-                    // Lo mandamos al inicio
+                    localStorage.removeItem('mc_usuario_activo');
+                    localStorage.removeItem('mc_tiempo_sesion');
+                    localStorage.removeItem('admin_mc_activo');
                     window.location.href = '/index.html';
+                }
+            });
+        }
+
+        // --- 5. LÓGICA PARA CAMBIAR LA FOTO DE PERFIL ---
+        if (inputAvatar && perfilImg) {
+            inputAvatar.addEventListener('change', function(event) {
+                const archivo = event.target.files[0]; 
+                
+                if (archivo) {
+                    if (archivo.size > 2 * 1024 * 1024) {
+                        alert("⚠️ La imagen es muy pesada. Elige una de menos de 2MB.");
+                        return;
+                    }
+
+                    const lector = new FileReader();
+                    lector.onload = function(e) {
+                        const fotoBase64 = e.target.result; 
+                        
+                        perfilImg.src = fotoBase64;
+                        localStorage.setItem(claveAvatar, fotoBase64); // Guardamos su foto única
+                        
+                        const nombreOriginal = perfilNombre.textContent;
+                        perfilNombre.textContent = "¡Foto Actualizada! ✅";
+                        setTimeout(() => { perfilNombre.textContent = nombreOriginal; }, 2000);
+                    };
+                    lector.readAsDataURL(archivo);
                 }
             });
         }
     }
 });
 
-// ==========================================
 // ==========================================
 // CONTROLADOR GLOBAL DEL MENÚ (DINÁMICO)
 // ==========================================
@@ -1215,69 +1285,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('pass-actual').value = '';
                 document.getElementById('pass-nueva').value = '';
                 document.getElementById('pass-confirmar').value = '';
-            }
-        });
-    }
-});
-
-// ==========================================
-// SISTEMA DE FOTO DE PERFIL (AVATAR)
-// ==========================================
-document.addEventListener('DOMContentLoaded', () => {
-    const inputAvatar = document.getElementById('input-avatar');
-    const perfilImg = document.getElementById('perfil-img');
-
-    // 1. CARGAR LA FOTO AL ENTRAR AL PERFIL
-    if (perfilImg) {
-        const usuarioActivo = localStorage.getItem('usuario_mc_activo');
-        let usuarios = JSON.parse(localStorage.getItem('usuarios_mc_db')) || [];
-        const misDatos = usuarios.find(user => user.correo === usuarioActivo);
-
-        // Si el cliente ya tenía una foto guardada, la ponemos en pantalla
-        if (misDatos && misDatos.avatar) {
-            perfilImg.src = misDatos.avatar;
-        }
-    }
-
-    // 2. CAMBIAR LA FOTO CUANDO TOCA LA CÁMARA
-    if (inputAvatar && perfilImg) {
-        inputAvatar.addEventListener('change', function(event) {
-            const archivo = event.target.files[0]; // Capturamos la foto
-            
-            if (archivo) {
-                // Filtro de peso (Opcional, pero recomendado: Máximo 2MB)
-                if (archivo.size > 2 * 1024 * 1024) {
-                    alert("⚠️ La imagen es muy pesada. Elige una de menos de 2MB.");
-                    return;
-                }
-
-                const lector = new FileReader();
-                
-                // Cuando termine de leer la imagen...
-                lector.onload = function(e) {
-                    const fotoBase64 = e.target.result; // La foto convertida en texto
-                    
-                    // A. Cambiamos la foto en la pantalla al instante
-                    perfilImg.src = fotoBase64;
-
-                    // B. La guardamos en su bóveda secreta de datos
-                    const usuarioActivo = localStorage.getItem('usuario_mc_activo');
-                    let usuarios = JSON.parse(localStorage.getItem('usuarios_mc_db')) || [];
-                    let indiceUsuario = usuarios.findIndex(user => user.correo === usuarioActivo);
-                    
-                    if (indiceUsuario !== -1) {
-                        usuarios[indiceUsuario].avatar = fotoBase64;
-                        localStorage.setItem('usuarios_mc_db', JSON.stringify(usuarios));
-                        
-                        // Pequeño aviso visual (se borra en 2 seg)
-                        const nombreOriginal = document.getElementById('perfil-nombre').textContent;
-                        document.getElementById('perfil-nombre').textContent = "¡Foto Actualizada! ✅";
-                        setTimeout(() => { document.getElementById('perfil-nombre').textContent = nombreOriginal; }, 2000);
-                    }
-                };
-                
-                // Inicia la conversión
-                lector.readAsDataURL(archivo);
             }
         });
     }
