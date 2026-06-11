@@ -751,6 +751,7 @@ if (formLogin) {
         // 👨‍💻 PUERTA SECRETA DEL JEFE (LOCAL)
         if ((email === "admin_mc" || email === "admin@mc.com") && password === "Jefe2026*") {
             localStorage.setItem('admin_mc_activo', 'true');
+            localStorage.setItem('mc_tiempo_sesion', Date.now()); // 🔥 AQUÍ ENTRA EL CRONÓMETRO
             btnSubmit.style.backgroundColor = "#8a2be2";
             btnSubmit.style.opacity = '1';
             btnSubmit.textContent = "👨‍💻 ABRIENDO CABINA...";
@@ -773,6 +774,7 @@ if (formLogin) {
 
             // 🎟️ LE DAMOS LOS DOS PASES VIP PARA QUE LA TIENDA NO SE VUELVA LOCA
             localStorage.setItem('usuario_mc_activo', usuarioFirebase.email);
+            localStorage.setItem('mc_tiempo_sesion', Date.now()); // 🔥 AQUÍ ENTRA EL CRONÓMETRO PARA EL CLIENTE
             localStorage.setItem('mc_usuario_activo', JSON.stringify({
                 nombre: nombreUsuario, 
                 correo: usuarioFirebase.email,
@@ -1332,5 +1334,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 lector.readAsDataURL(archivo);
             }
         });
+    }
+});
+
+// ==========================================
+// ⏱️ GUARDIÁN DE TIEMPO DE SESIÓN (EXPIRACIÓN DE 12 HORAS)
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    const usuarioActivo = localStorage.getItem('usuario_mc_activo');
+    const adminActivo = localStorage.getItem('admin_mc_activo');
+    const tiempoSesion = localStorage.getItem('mc_tiempo_sesion');
+
+    // Si hay alguien logueado y tenemos la hora guardada
+    if ((usuarioActivo || adminActivo) && tiempoSesion) {
+        const tiempoActual = Date.now();
+        const tiempoPasado = tiempoActual - parseInt(tiempoSesion);
+
+        // ⏱️ Configuración del límite: 12 horas (puedes cambiar el 12 por 24 si quieres un día entero)
+        const limiteHoras = 0.0050;
+        const limiteMilisegundos = limiteHoras * 60 * 60 * 1000;
+
+        // Si el tiempo pasado es mayor al límite permitido...
+        if (tiempoPasado > limiteMilisegundos) {
+            // 🧹 Borramos todas las llaves y pases VIP
+            localStorage.removeItem('usuario_mc_activo');
+            localStorage.removeItem('mc_usuario_activo');
+            localStorage.removeItem('mc_tiempo_sesion');
+            localStorage.removeItem('admin_mc_activo'); 
+
+            // Avisamos y lo mandamos al login
+            alert("⏳ Tu sesión ha expirado por seguridad. Por favor, vuelve a iniciar sesión.");
+            window.location.href = '/assets/pages/login.html';
+        }
     }
 });
