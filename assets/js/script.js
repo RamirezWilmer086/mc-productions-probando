@@ -881,7 +881,7 @@ if (cabeceraGestor) {
 window.cargarTracksAdmin = cargarTracksAdmin;
 
 // ==========================================
-// BÓVEDA PRIVADA CONECTADA A INDEXEDDB (VERSIÓN DEFINITIVA Y SEGURA)
+// 🎧 BÓVEDA PRIVADA CONECTADA A FIREBASE (MI BIBLIOTECA)
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
     const contenedorBiblioteca = document.getElementById('grid-biblioteca');
@@ -898,20 +898,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         const compras = JSON.parse(localStorage.getItem(claveCompras)) || [];
         
         if (compras.length > 0) {
-            contenedorBiblioteca.innerHTML = '<p style="text-align:center; color: "#8a2be2"; width: 100%;">Cargando música desde los servidores seguros...</p>';
+            contenedorBiblioteca.innerHTML = '<p style="text-align:center; color: #8a2be2; width: 100%; grid-column: 1 / -1;">⏳ Desencriptando música desde los servidores de Google...</p>';
             
             try {
-                const db = await abrirBaseDeDatos();
                 contenedorBiblioteca.innerHTML = ''; 
                 
-                compras.forEach(trackComprado => {
-                    const transaccion = db.transaction(["catalogo_musica"], "readonly");
-                    const store = transaccion.objectStore("catalogo_musica");
-                    const peticion = store.get(trackComprado.id);
+                // Iteramos sobre las compras guardadas en el historial del cliente
+                for (const trackComprado of compras) {
                     
-                    peticion.onsuccess = () => {
-                        const cancionOriginal = peticion.result;
-                        const datos = cancionOriginal || trackComprado; 
+                    // 🚀 MAGIA: Usamos el ID de la compra para buscar el archivo original, fresco y directo en la nube
+                    const docRef = doc(db, "catalogo_musica", trackComprado.id);
+                    const docSnap = await getDoc(docRef);
+                    
+                    if (docSnap.exists()) {
+                        const datosOriginales = docSnap.data();
                         
                         const articulo = document.createElement('article');
                         articulo.classList.add('album');
@@ -919,55 +919,50 @@ document.addEventListener('DOMContentLoaded', async () => {
                         
                         let bloqueAudioHTML = '';
                         
-                        // 🔥 LA SOLUCIÓN ESTÁ AQUÍ: Extraemos el audio de forma segura
-                        let archivoMusical = datos.audio || datos.base64 || trackComprado.audio || '';
-                        
-                        // 1. SI ES UN ÁLBUM (Comprobamos estrictamente si es una LISTA / Array)
-                        if (Array.isArray(archivoMusical)) {
+                        // 1. SI ES UN ÁLBUM
+                        if (datosOriginales.categoria === 'ALBUMES' && Array.isArray(datosOriginales.audio)) {
                             bloqueAudioHTML = `<div style="margin-top: 15px; max-height: 180px; overflow-y: auto; background: rgba(9, 3, 15, 0.6); padding: 10px; border-radius: 8px;">`;
                             
-                            archivoMusical.forEach((pista, index) => {
-                                let urlAudio = typeof pista === 'string' ? pista : (pista.base64 || pista.audio);
-                                let nombrePista = pista.tituloPista || `Pista ${index + 1}`;
+                            datosOriginales.audio.forEach((pista, index) => {
                                 bloqueAudioHTML += `
                                     <div style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
-                                        <p style="font-size: 12px; color: white; margin-bottom: 5px;"><b>${index + 1}.</b> ${nombrePista}</p>
-                                        <audio controls src="${urlAudio}" style="width: 100%; height: 30px;"></audio>
-                                        <a href="${urlAudio}" download="${datos.artista || 'Artista'} - ${nombrePista}.mp3" style="display: block; text-align: center; background: #8a2be2; color: black; padding: 5px; border-radius: 4px; font-size: 11px; margin-top: 5px; text-decoration: none; font-weight: bold;">
-                                            <i class='bx bx-download'></i> DESCARGAR
+                                        <p style="font-size: 12px; color: white; margin-bottom: 5px;"><b>${index + 1}.</b> ${pista.tituloPista}</p>
+                                        <audio controls controlsList="nodownload" src="${pista.url}" style="width: 100%; height: 30px;"></audio>
+                                        <a href="${pista.url}" target="_blank" style="display: block; text-align: center; background: #8a2be2; color: white; padding: 5px; border-radius: 4px; font-size: 11px; margin-top: 5px; text-decoration: none; font-weight: bold;">
+                                            <i class='bx bx-cloud-download'></i> ABRIR / DESCARGAR
                                         </a>
                                     </div>`;
                             });
                             bloqueAudioHTML += `</div>`;
                         } 
-                        // 2. SI ES UN SINGLE (Es un solo archivo de texto/base64)
+                        // 2. SI ES UN SINGLE
                         else {
                             bloqueAudioHTML = `
-                                <audio controls src="${archivoMusical}" style="width: 100%; margin-top: 10px; margin-bottom: 10px;"></audio>
-                                <a href="${archivoMusical}" download="${datos.artista || 'Artista'} - ${datos.titulo || 'Audio'}.mp3" style="display: block; text-align: center; background: #8a2be2; color: black; padding: 8px; border-radius: 4px; font-size: 12px; text-decoration: none; font-weight: bold;">
-                                    <i class='bx bx-download'></i> DESCARGAR ARCHIVO
+                                <audio controls controlsList="nodownload" src="${datosOriginales.audio}" style="width: 100%; margin-top: 10px; margin-bottom: 10px;"></audio>
+                                <a href="${datosOriginales.audio}" target="_blank" style="display: block; text-align: center; background: #8a2be2; color: white; padding: 8px; border-radius: 4px; font-size: 12px; text-decoration: none; font-weight: bold;">
+                                    <i class='bx bx-cloud-download'></i> ABRIR / DESCARGAR ARCHIVO
                                 </a>
                             `;
                         }
                         
                         articulo.innerHTML = `
-                            <img src="${datos.img || trackComprado.img || '/assets/img/logo.png'}" alt="Portada">
-                            <h4>${datos.artista || trackComprado.artista || 'Artista Desconocido'}</h4>
-                            <p>${datos.titulo || trackComprado.titulo || 'Sin título'}</p>
+                            <img src="${datosOriginales.img}" alt="Portada">
+                            <h4>${datosOriginales.artista}</h4>
+                            <p>${datosOriginales.titulo}</p>
                             <span style="display: inline-block; background: rgba(37, 211, 102, 0.2); color: #8a2be2; padding: 3px 8px; border-radius: 10px; font-size: 10px; font-weight: bold; margin-bottom: 10px;">TRACK ADQUIRIDO</span>
                             ${bloqueAudioHTML}
                         `;
                         contenedorBiblioteca.appendChild(articulo);
-                    };
-                });
+                    }
+                }
                 
             } catch (error) {
-                console.error("Error al acceder a IndexedDB:", error);
-                contenedorBiblioteca.innerHTML = '<p style="color: red; text-align: center;">Error al cargar los servidores seguros.</p>';
+                console.error("Error al acceder a Firebase Database:", error);
+                contenedorBiblioteca.innerHTML = '<p style="color: red; text-align: center; width: 100%; grid-column: 1 / -1;">❌ Error al cargar los servidores seguros.</p>';
             }
             
         } else {
-            contenedorBiblioteca.innerHTML = '<p style="text-align:center; width: 100%; color: white; margin-top: 20px;">Tu bóveda está vacía. ¡Ve a la tienda a buscar nueva música!</p>';
+            contenedorBiblioteca.innerHTML = '<p style="text-align:center; width: 100%; grid-column: 1 / -1; color: white; margin-top: 20px;">Tu bóveda está vacía. ¡Ve a la tienda a buscar nueva música!</p>';
         }
     }
 });
