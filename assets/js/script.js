@@ -241,101 +241,80 @@ if (contenedorCarrito) {
     });
 }
 // =========================================================
-// D) LÓGICA DEL FORMULARIO DE PAGO (CONECTADO A LA BÓVEDA)
+// 💳 MOTOR DE PAGOS REAL (PAYPAL)
 // =========================================================
-const btnProcederPago = document.getElementById('btn-proceder');
-const contenedorPago = document.getElementById('contenedor-pago');
-const formPago = document.getElementById('form-pago');
-const inputTarjeta = document.getElementById('num-tarjeta');
-const cerrarModal = document.getElementById('cerrar-modal'); 
-const modalPago = document.getElementById('modal-pago'); 
+document.addEventListener('DOMContentLoaded', () => {
+    const contenedorBotonesPayPal = document.getElementById('paypal-button-container');
 
-// 1. Abrir el formulario o popup de pago
-if (btnProcederPago) {
-    btnProcederPago.addEventListener('click', () => {
-        const usuarioActivo = localStorage.getItem('usuario_mc_activo');
+    // Solo activamos PayPal si estamos en la página del carrito
+    if (contenedorBotonesPayPal) {
         
-        if (!usuarioActivo) {
-            alert("🔒 Debes iniciar sesión para procesar la compra.");
-            window.location.href = '/assets/pages/login.html';
-            return;
-        }
+        window.paypal.Buttons({
+            // A) CONFIGURAR EL COBRO
+            createOrder: function(data, actions) {
+                // 1. Extraemos el total exacto que aparece en pantalla (tu carrito)
+                const textoTotal = document.querySelector('.total-precio').textContent;
+                // Le quitamos el símbolo de dólar para que PayPal solo lea el número
+                const totalNumerico = textoTotal.replace('$', '').trim(); 
 
-        if (typeof carrito === 'undefined' || carrito.length === 0) {
-            return mostrarAlertaElegante("⚠️ Tu carrito está vacío. Agrega música primero.");
-        }
-        
-        if (contenedorPago) {
-            contenedorPago.style.display = 'block';
-            btnProcederPago.style.display = 'none';
-        }
-        if (modalPago) {
-            modalPago.classList.add('modal-activo');
-        }
-    });
-}
+                // Si el total es 0, no cobramos
+                if (parseFloat(totalNumerico) <= 0) {
+                    alert("Tu carrito está vacío. Agrega música primero.");
+                    return;
+                }
 
-// 2. Cerrar el popup (si usas popup)
-if (cerrarModal && modalPago) {
-    cerrarModal.addEventListener('click', () => {
-        modalPago.classList.remove('modal-activo');
-    });
-}
-
-// 3. Formatear la tarjeta
-if (inputTarjeta) {
-    inputTarjeta.addEventListener('input', function (e) {
-        e.target.value = e.target.value.replace(/[^\d]/g, '').replace(/(.{4})/g, '$1 ').trim();
-    });
-}
-
-// 4. PROCESAR EL PAGO Y ENVIAR A LA BÓVEDA
-if (formPago) {
-    formPago.addEventListener('submit', (evento) => {
-        evento.preventDefault();
-        
-        const usuarioActivo = localStorage.getItem('usuario_mc_activo');
-        const btnSubmit = formPago.querySelector('button');
-
-        // Animación de banco cargando...
-        btnSubmit.textContent = 'PROCESANDO CON EL BANCO...';
-        btnSubmit.style.opacity = '0.7';
-        btnSubmit.style.pointerEvents = 'none';
-
-        setTimeout(() => {
+                // Le enviamos la orden a PayPal con el monto exacto
+                return actions.order.create({
+                    purchase_units: [{
+                        amount: {
+                            value: totalNumerico
+                        },
+                        description: "Música Premium - MC Productions"
+                    }]
+                });
+            },
             
-            // --- MAGIA: GUARDAR EN LA BÓVEDA ---
-            const claveCompras = 'compras_' + usuarioActivo;
-            let comprasAnteriores = JSON.parse(localStorage.getItem(claveCompras)) || [];
-            
-            // Sumamos lo comprado al historial del cliente
-            let nuevasCompras = comprasAnteriores.concat(carrito);
-            localStorage.setItem(claveCompras, JSON.stringify(nuevasCompras));
+            // B) SI EL BANCO APRUEBA EL PAGO
+            onApprove: function(data, actions) {
+                return actions.order.capture().then(function(detalles) {
+                    
+                    // ¡EL DINERO ES TUYO! 💸
+                    const usuarioActivo = localStorage.getItem('usuario_mc_activo');
+                    
+                    // --- GUARDAR CANCIONES EN LA BÓVEDA ---
+                    const claveCompras = 'compras_' + usuarioActivo;
+                    let comprasAnteriores = JSON.parse(localStorage.getItem(claveCompras)) || [];
+                    
+                    let carritoActual = JSON.parse(localStorage.getItem('mc_carrito')) || [];
+                    
+                    const nuevasAdquisiciones = carritoActual.map(item => ({
+                        id: item.id,
+                        fechaCompra: new Date().toISOString(),
+                        transaccion: detalles.id // ID real de PayPal como recibo
+                    }));
 
-            // Vaciamos el carrito del sistema original
-            carrito = [];
-            localStorage.setItem('mc_carrito', JSON.stringify(carrito));
-            if (typeof actualizarPantallaCarrito === 'function') {
-                actualizarPantallaCarrito();
+                    let bibliotecaActualizada = comprasAnteriores.concat(nuevasAdquisiciones);
+                    localStorage.setItem(claveCompras, JSON.stringify(bibliotecaActualizada));
+
+                    // --- VACIAR EL CARRITO ---
+                    localStorage.setItem('mc_carrito', JSON.stringify([]));
+                    
+                    // --- VIAJE TRIUNFAL A LA BIBLIOTECA ---
+                    const nombreCliente = detalles.payer.name.given_name;
+                    alert(`✅ ¡Pago exitoso, ${nombreCliente}! Tu música ha sido liberada.`);
+                    window.location.href = '/assets/pages/biblioteca.html';
+                });
+            },
+
+            // C) SI LA TARJETA ES FALSA O EL USUARIO CANCELA
+            onError: function(err) {
+                console.error("Error procesando pago:", err);
+                alert("❌ Ocurrió un error con la transacción o fue cancelada.");
             }
 
-            // Ocultar formularios y resetear
-            if (modalPago) modalPago.classList.remove('modal-activo');
-            if (contenedorPago) contenedorPago.style.display = 'none';
-            if (btnProcederPago) btnProcederPago.style.display = 'block';
-
-            formPago.reset();
-            btnSubmit.textContent = 'CONFIRMAR PAGO';
-            btnSubmit.style.opacity = '1';
-            btnSubmit.style.pointerEvents = 'auto';
-
-            // VIAJE FINAL A LA BIBLIOTECA
-            alert("✅ ¡Pago exitoso! Tu música ha sido enviada a tu Biblioteca Privada.");
-            window.location.href = '/assets/pages/biblioteca.html';
-
-        }, 2500); 
-    });
-}
+        }).render('#paypal-button-container');
+    }
+});
 
 // ==========================================
 // 🛒 5. MOTOR DE LA TIENDA - FIREBASE CLOUD
