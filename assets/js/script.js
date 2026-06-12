@@ -274,35 +274,69 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             },
             
-            // B) SI EL BANCO APRUEBA EL PAGO
+            // B) SI EL BANCO APRUEBA EL PAGO (CONEXIÓN ULTRA-SEGURA A FIREBASE)
             onApprove: function(data, actions) {
-                return actions.order.capture().then(function(detalles) {
+                // 🚀 OJO: Añadimos 'async' aquí adelante para poder usar los superpoderes de Firebase (await)
+                return actions.order.capture().then(async function(detalles) {
                     
-                    // ¡EL DINERO ES TUYO! 💸
-                    const usuarioActivo = localStorage.getItem('usuario_mc_activo');
-                    
-                    // --- GUARDAR CANCIONES EN LA BÓVEDA ---
-                    const claveCompras = 'compras_' + usuarioActivo;
-                    let comprasAnteriores = JSON.parse(localStorage.getItem(claveCompras)) || [];
-                    
-                    let carritoActual = JSON.parse(localStorage.getItem('mc_carrito')) || [];
-                    
-                    const nuevasAdquisiciones = carritoActual.map(item => ({
-                        id: item.id,
-                        fechaCompra: new Date().toISOString(),
-                        transaccion: detalles.id // ID real de PayPal como recibo
-                    }));
+                    try {
+                        // ¡EL DINERO YA ESTÁ EN CAMINO! 💸
+                        const usuarioActivo = localStorage.getItem('usuario_mc_activo');
+                        
+                        if (!usuarioActivo) {
+                            alert("⚠️ Alerta: No se detectó sesión activa. Guarda tu ID de transacción: " + detalles.id);
+                            return;
+                        }
 
-                    let bibliotecaActualizada = comprasAnteriores.concat(nuevasAdquisiciones);
-                    localStorage.setItem(claveCompras, JSON.stringify(bibliotecaActualizada));
+                        // 1. Extraemos las canciones que están en el carrito local
+                        let carritoActual = JSON.parse(localStorage.getItem('mc_carrito')) || [];
+                        
+                        // 2. Preparamos los datos estructurados para la nube
+                        const nuevasAdquisiciones = carritoActual.map(item => ({
+                            id: item.id,
+                            titulo: item.titulo || "Track Premium",
+                            fechaCompra: new Date().toISOString(),
+                            transaccionId: detalles.id, // Recibo oficial de PayPal
+                            montoPagado: detalles.purchase_units[0].amount.value
+                        }));
 
-                    // --- VACIAR EL CARRITO ---
-                    localStorage.setItem('mc_carrito', JSON.stringify([]));
-                    
-                    // --- VIAJE TRIUNFAL A LA BIBLIOTECA ---
-                    const nombreCliente = detalles.payer.name.given_name;
-                    alert(`✅ ¡Pago exitoso, ${nombreCliente}! Tu música ha sido liberada.`);
-                    window.location.href = '/assets/pages/biblioteca.html';
+                        // 3. TRAER HISTORIAL VIEJO DE FIREBASE (Para acumular y no borrar lo que ya compró antes)
+                        const docRefCompras = doc(db, "historial_compras", usuarioActivo);
+                        const docSnap = await getDoc(docRefCompras);
+                        
+                        let historialCompleto = nuevasAdquisiciones;
+                        
+                        if (docSnap.exists()) {
+                            const datosViejos = docSnap.data();
+                            if (datosViejos.compras && Array.isArray(datosViejos.compras)) {
+                                // Fusionamos el historial viejo con las canciones nuevas
+                                historialCompleto = datosViejos.compras.concat(nuevasAdquisiciones);
+                            }
+                        }
+
+                        // 4. SUBIDA EN VIVO A LA NUBE DE GOOGLE FIREBASE
+                        await setDoc(docRefCompras, { 
+                            usuario: usuarioActivo,
+                            compras: historialCompleto,
+                            ultimaActualizacion: new Date().toISOString()
+                        }, { merge: true });
+
+                        // 5. RESPALDO LOCAL DE SEGURIDAD
+                        const claveCompras = 'compras_' + usuarioActivo;
+                        localStorage.setItem(claveCompras, JSON.stringify(historialCompleto));
+
+                        // 6. VACIAR EL CARRITO COMPLETAMENTE
+                        localStorage.setItem('mc_carrito', JSON.stringify([]));
+                        
+                        // 7. VIAJE TRIUNFAL A LA BIBLIOTECA
+                        const nombreCliente = detalles.payer.name.given_name;
+                        alert(`✅ ¡Pago exitoso, ${nombreCliente}! Tu música ha sido guardada en tu cuenta de MC Productions en la nube.`);
+                        window.location.href = '/assets/pages/biblioteca.html';
+
+                    } catch (error) {
+                        console.error("Error crítico guardando la compra en Firebase:", error);
+                        alert("⚠️ Tu pago pasó bien, pero hubo un pestañeo al conectar con la nube. Tu música se guardó en este dispositivo.");
+                    }
                 });
             },
 
@@ -883,75 +917,82 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         
-        const claveCompras = 'compras_' + usuarioActivo;
-        const compras = JSON.parse(localStorage.getItem(claveCompras)) || [];
+        contenedorBiblioteca.innerHTML = '<p style="text-align:center; color: #8a2be2; width: 100%; grid-column: 1 / -1;">⏳ Conectando con tu Bóveda en la Nube...</p>';
         
-        if (compras.length > 0) {
-            contenedorBiblioteca.innerHTML = '<p style="text-align:center; color: #8a2be2; width: 100%; grid-column: 1 / -1;">⏳ Desencriptando música desde los servidores de Google...</p>';
+        try {
+            // 🚀 MAGIA: Vamos directo a Firestore a buscar el documento con el correo del usuario
+            const docRefCompras = doc(db, "historial_compras", usuarioActivo);
+            const docSnap = await getDoc(docRefCompras);
             
-            try {
-                contenedorBiblioteca.innerHTML = ''; 
+            if (docSnap.exists()) {
+                const datosHistorial = docSnap.data();
+                const compras = datosHistorial.compras || [];
                 
-                // Iteramos sobre las compras guardadas en el historial del cliente
-                for (const trackComprado of compras) {
+                if (compras.length > 0) {
+                    contenedorBiblioteca.innerHTML = ''; 
                     
-                    // 🚀 MAGIA: Usamos el ID de la compra para buscar el archivo original, fresco y directo en la nube
-                    const docRef = doc(db, "catalogo_musica", trackComprado.id);
-                    const docSnap = await getDoc(docRef);
-                    
-                    if (docSnap.exists()) {
-                        const datosOriginales = docSnap.data();
+                    // Iteramos sobre las compras bajadas de la nube
+                    for (const trackComprado of compras) {
                         
-                        const articulo = document.createElement('article');
-                        articulo.classList.add('album');
-                        articulo.style.border = "1px solid #8a2be2"; 
+                        // Buscamos el archivo original del catálogo
+                        const docRef = doc(db, "catalogo_musica", trackComprado.id);
+                        const docTrackSnap = await getDoc(docRef);
                         
-                        let bloqueAudioHTML = '';
-                        
-                        // 1. SI ES UN ÁLBUM
-                        if (datosOriginales.categoria === 'ALBUMES' && Array.isArray(datosOriginales.audio)) {
-                            bloqueAudioHTML = `<div style="margin-top: 15px; max-height: 180px; overflow-y: auto; background: rgba(9, 3, 15, 0.6); padding: 10px; border-radius: 8px;">`;
+                        if (docTrackSnap.exists()) {
+                            const datosOriginales = docTrackSnap.data();
                             
-                            datosOriginales.audio.forEach((pista, index) => {
-                                bloqueAudioHTML += `
-                                    <div style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
-                                        <p style="font-size: 12px; color: white; margin-bottom: 5px;"><b>${index + 1}.</b> ${pista.tituloPista}</p>
-                                        <audio controls controlsList="nodownload" src="${pista.url}" style="width: 100%; height: 30px;"></audio>
-                                        <a href="${pista.url}" target="_blank" style="display: block; text-align: center; background: #8a2be2; color: white; padding: 5px; border-radius: 4px; font-size: 11px; margin-top: 5px; text-decoration: none; font-weight: bold;">
-                                            <i class='bx bx-cloud-download'></i> ABRIR / DESCARGAR
-                                        </a>
-                                    </div>`;
-                            });
-                            bloqueAudioHTML += `</div>`;
-                        } 
-                        // 2. SI ES UN SINGLE
-                        else {
-                            bloqueAudioHTML = `
-                                <audio controls controlsList="nodownload" src="${datosOriginales.audio}" style="width: 100%; margin-top: 10px; margin-bottom: 10px;"></audio>
-                                <a href="${datosOriginales.audio}" target="_blank" style="display: block; text-align: center; background: #8a2be2; color: white; padding: 8px; border-radius: 4px; font-size: 12px; text-decoration: none; font-weight: bold;">
-                                    <i class='bx bx-cloud-download'></i> ABRIR / DESCARGAR ARCHIVO
-                                </a>
+                            const articulo = document.createElement('article');
+                            articulo.classList.add('album');
+                            articulo.style.border = "1px solid #8a2be2"; 
+                            
+                            let bloqueAudioHTML = '';
+                            
+                            // 1. SI ES UN ÁLBUM
+                            if (datosOriginales.categoria === 'ALBUMES' && Array.isArray(datosOriginales.audio)) {
+                                bloqueAudioHTML = `<div style="margin-top: 15px; max-height: 180px; overflow-y: auto; background: rgba(9, 3, 15, 0.6); padding: 10px; border-radius: 8px;">`;
+                                
+                                datosOriginales.audio.forEach((pista, index) => {
+                                    bloqueAudioHTML += `
+                                        <div style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+                                            <p style="font-size: 12px; color: white; margin-bottom: 5px;"><b>${index + 1}.</b> ${pista.tituloPista}</p>
+                                            <audio controls controlsList="nodownload" src="${pista.url}" style="width: 100%; height: 30px;"></audio>
+                                            <a href="${pista.url}" target="_blank" style="display: block; text-align: center; background: #8a2be2; color: white; padding: 5px; border-radius: 4px; font-size: 11px; margin-top: 5px; text-decoration: none; font-weight: bold;">
+                                                <i class='bx bx-cloud-download'></i> ABRIR / DESCARGAR
+                                            </a>
+                                        </div>`;
+                                });
+                                bloqueAudioHTML += `</div>`;
+                            } 
+                            // 2. SI ES UN SINGLE
+                            else {
+                                bloqueAudioHTML = `
+                                    <audio controls controlsList="nodownload" src="${datosOriginales.audio}" style="width: 100%; margin-top: 10px; margin-bottom: 10px;"></audio>
+                                    <a href="${datosOriginales.audio}" target="_blank" style="display: block; text-align: center; background: #8a2be2; color: white; padding: 8px; border-radius: 4px; font-size: 12px; text-decoration: none; font-weight: bold;">
+                                        <i class='bx bx-cloud-download'></i> ABRIR / DESCARGAR ARCHIVO
+                                    </a>
+                                `;
+                            }
+                            
+                            articulo.innerHTML = `
+                                <img src="${datosOriginales.img}" alt="Portada">
+                                <h4>${datosOriginales.artista}</h4>
+                                <p>${datosOriginales.titulo}</p>
+                                <span style="display: inline-block; background: rgba(37, 211, 102, 0.2); color: #8a2be2; padding: 3px 8px; border-radius: 10px; font-size: 10px; font-weight: bold; margin-bottom: 10px;">TRACK ADQUIRIDO</span>
+                                ${bloqueAudioHTML}
                             `;
+                            contenedorBiblioteca.appendChild(articulo);
                         }
-                        
-                        articulo.innerHTML = `
-                            <img src="${datosOriginales.img}" alt="Portada">
-                            <h4>${datosOriginales.artista}</h4>
-                            <p>${datosOriginales.titulo}</p>
-                            <span style="display: inline-block; background: rgba(37, 211, 102, 0.2); color: #8a2be2; padding: 3px 8px; border-radius: 10px; font-size: 10px; font-weight: bold; margin-bottom: 10px;">TRACK ADQUIRIDO</span>
-                            ${bloqueAudioHTML}
-                        `;
-                        contenedorBiblioteca.appendChild(articulo);
                     }
+                } else {
+                    contenedorBiblioteca.innerHTML = '<p style="text-align:center; width: 100%; grid-column: 1 / -1; color: white; margin-top: 20px;">Tu bóveda está vacía. ¡Ve a la tienda a buscar nueva música!</p>';
                 }
-                
-            } catch (error) {
-                console.error("Error al acceder a Firebase Database:", error);
-                contenedorBiblioteca.innerHTML = '<p style="color: red; text-align: center; width: 100%; grid-column: 1 / -1;">❌ Error al cargar los servidores seguros.</p>';
+            } else {
+                 contenedorBiblioteca.innerHTML = '<p style="text-align:center; width: 100%; grid-column: 1 / -1; color: white; margin-top: 20px;">Aún no tienes historial de compras. ¡Ve a la tienda!</p>';
             }
             
-        } else {
-            contenedorBiblioteca.innerHTML = '<p style="text-align:center; width: 100%; grid-column: 1 / -1; color: white; margin-top: 20px;">Tu bóveda está vacía. ¡Ve a la tienda a buscar nueva música!</p>';
+        } catch (error) {
+            console.error("Error al acceder al historial en Firebase Database:", error);
+            contenedorBiblioteca.innerHTML = '<p style="color: red; text-align: center; width: 100%; grid-column: 1 / -1;">❌ Error al conectar con tu Bóveda en la Nube.</p>';
         }
     }
 });
