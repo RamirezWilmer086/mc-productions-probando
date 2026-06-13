@@ -1095,31 +1095,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        // --- LÓGICA DE CERRAR SESIÓN SEGURA (FIREBASE + LOCAL) ---
-        const btnCerrarSesion = document.getElementById('btn-cerrar-sesion');
-        if (btnCerrarSesion) {
-            btnCerrarSesion.addEventListener('click', async () => {
-                const confirmar = confirm("¿Estás seguro de que quieres cerrar sesión?");
-                if (confirmar) {
-                    try {
-                        // 1. DESCONECTAR OFICIALMENTE DE GOOGLE FIREBASE 🔌
-                        await signOut(auth);
-
-                        // 2. BARRER LA MEMORIA LOCAL 🧹
-                        localStorage.removeItem('usuario_mc_activo');
-                        localStorage.removeItem('mc_usuario_activo');
-                        localStorage.removeItem('mc_tiempo_sesion');
-                        localStorage.removeItem('admin_mc_activo');
-                        
-                        // 3. MANDAR A LA PÁGINA DE INICIO
-                        window.location.href = '/index.html';
-                    } catch (error) {
-                        console.error("Error al cerrar sesión en la nube:", error);
-                    }
-                }
-            });
-        }
-
         // --- 4. LÓGICA PARA CAMBIAR LA FOTO DE PERFIL (SUBIDA A FIREBASE) ---
         if (inputAvatar && perfilImg) {
             inputAvatar.addEventListener('change', async function(event) {
@@ -1314,5 +1289,40 @@ document.addEventListener('DOMContentLoaded', () => {
             alert("⏳ Tu sesión ha expirado por seguridad. Por favor, vuelve a iniciar sesión.");
             window.location.href = '/assets/pages/login.html';
         }
+    }
+});
+
+// ==========================================
+// 🔌 CERRAR SESIÓN GLOBAL (FUNCIONA EN TODAS LAS PÁGINAS)
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    const btnCerrarSesion = document.getElementById('btn-cerrar-sesion');
+    
+    if (btnCerrarSesion) {
+        btnCerrarSesion.addEventListener('click', async (evento) => {
+            evento.preventDefault(); // Evitamos saltos raros de página
+            
+            const confirmar = confirm("¿Estás seguro de que quieres cerrar sesión?");
+            
+            if (confirmar) {
+                try {
+                    // 1. Desconectar a la fuerza de la Bóveda de Google
+                    await signOut(auth);
+
+                    // 2. Barrer con todas las llaves VIP del celular/PC
+                    localStorage.removeItem('usuario_mc_activo');
+                    localStorage.removeItem('mc_usuario_activo');
+                    localStorage.removeItem('mc_tiempo_sesion');
+                    localStorage.removeItem('admin_mc_activo');
+                    
+                    // 3. Mandar al inicio de la página sin identidad
+                    window.location.href = '/index.html';
+                    
+                } catch (error) {
+                    console.error("Error al desconectar de la nube:", error);
+                    alert("⚠️ Hubo un problema al cerrar sesión.");
+                }
+            }
+        });
     }
 });
