@@ -600,7 +600,7 @@ if (formAdmin) {
             // Éxito absoluto
             if (mensajeAdmin) {
                 mensajeAdmin.textContent = "✅ ¡Track/Álbum publicado con éxito en la nube de Firebase!";
-                mensajeAdmin.style.color = "#28a745";
+                mensajeAdmin.style.color = "#8a2be2";
                 mensajeAdmin.style.display = "block";
             }
             
@@ -799,7 +799,7 @@ if (formLogin) {
                     token: "firebase_" + usuarioFirebase.uid
                 }));
                 
-                btnSubmit.style.backgroundColor = "#28a745"; 
+                btnSubmit.style.backgroundColor = "#8a2be2"; 
                 btnSubmit.style.opacity = '1';
                 btnSubmit.textContent = `✅ ¡BIENVENIDO, ${nombreUsuario.toUpperCase()}!`;
                 
@@ -860,7 +860,7 @@ async function cargarTracksAdmin() {
                     <img src="${track.img}" style="width: 50px; height: 50px; border-radius: 5px; object-fit: cover; border: 1px solid #8a2be2;">
                         <h4 style="color: white; margin: 0; font-size: 16px;">${track.titulo}</h4>
                         <p style="color: #aaa; margin: 5px 0 0 0; font-size: 12px; font-weight: bold;">
-                            ${track.artista} | <span style="color: #28a745;">$${track.precio}</span> | ${track.categoria}
+                            ${track.artista} | <span style="color: #8a2be2;">$${track.precio}</span> | ${track.categoria}
                         </p>
                     </div>
                 </div>
