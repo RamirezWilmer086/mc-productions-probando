@@ -738,7 +738,6 @@ if (formRegistro) {
 const mensajeErrorLogin = document.getElementById('mensaje-error-login');
 
 if (formLogin) {
-    // IMPORTANTE: Si ves otro "formLogin.addEventListener" más arriba o más abajo, ¡BÓRRALO! Solo debe existir este:
     formLogin.addEventListener('submit', async (evento) => {
         evento.preventDefault();
 
@@ -751,7 +750,6 @@ if (formLogin) {
         const email = inputCorreo.value.trim().toLowerCase();
         const password = inputClave.value;
 
-        // 🧹 APAGAMOS CUALQUIER ERROR VIEJO AL INSTANTE
         if (mensajeErrorLogin) {
             mensajeErrorLogin.style.display = "none";
             mensajeErrorLogin.textContent = "";
@@ -761,45 +759,50 @@ if (formLogin) {
         btnSubmit.style.opacity = '0.7';
         btnSubmit.style.pointerEvents = 'none';
 
-        // 👨‍💻 PUERTA SECRETA DEL JEFE (LOCAL)
-        if ((email === "admin_mc" || email === "admin@mc.com") && password === "Jefe2026*") {
-            localStorage.setItem('admin_mc_activo', 'true');
-            localStorage.setItem('mc_tiempo_sesion', Date.now()); // 🔥 AQUÍ ENTRA EL CRONÓMETRO
-            btnSubmit.style.backgroundColor = "#8a2be2";
-            btnSubmit.style.opacity = '1';
-            btnSubmit.textContent = "👨‍💻 ABRIENDO CABINA...";
-            setTimeout(() => { window.location.href = 'admin.html'; }, 1000);
-            return;
-        }
-
-        // 🔐 ACCESO PARA CLIENTES EN LA NUBE (FIREBASE)
+        // 🔐 ACCESO OFICIAL EN LA NUBE (FIREBASE)
         try {
             const credencial = await signInWithEmailAndPassword(auth, email, password);
             const usuarioFirebase = credencial.user;
 
-            const docRef = doc(db, "usuarios", usuarioFirebase.uid);
-            const docSnap = await getDoc(docRef);
+            // 👑 BIFURCACIÓN DE PODER: ¿ES EL JEFE O ES UN CLIENTE?
+            if (usuarioFirebase.email === "mcproductions407@gmail.com") {
+                
+                // 👨‍💻 ACCESO TOTAL DE ADMINISTRADOR
+                localStorage.setItem('admin_mc_activo', 'true');
+                localStorage.setItem('usuario_mc_activo', usuarioFirebase.email); 
+                localStorage.setItem('mc_tiempo_sesion', Date.now());
+                
+                btnSubmit.style.backgroundColor = "#8a2be2";
+                btnSubmit.style.opacity = '1';
+                btnSubmit.textContent = "👨‍💻 ABRIENDO CABINA DEL JEFE...";
+                setTimeout(() => { window.location.href = 'admin.html'; }, 1000);
+                return;
 
-            let nombreUsuario = "Cliente";
-            if (docSnap.exists()) {
-                nombreUsuario = docSnap.data().nombre;
+            } else {
+                
+                // 🎧 ACCESO DE CLIENTE VIP NORMAL
+                const docRef = doc(db, "usuarios", usuarioFirebase.uid);
+                const docSnap = await getDoc(docRef);
+
+                let nombreUsuario = "Cliente";
+                if (docSnap.exists()) {
+                    nombreUsuario = docSnap.data().nombre;
+                }
+
+                localStorage.setItem('usuario_mc_activo', usuarioFirebase.email);
+                localStorage.setItem('mc_tiempo_sesion', Date.now()); 
+                localStorage.setItem('mc_usuario_activo', JSON.stringify({
+                    nombre: nombreUsuario, 
+                    correo: usuarioFirebase.email,
+                    token: "firebase_" + usuarioFirebase.uid
+                }));
+                
+                btnSubmit.style.backgroundColor = "#28a745"; 
+                btnSubmit.style.opacity = '1';
+                btnSubmit.textContent = `✅ ¡BIENVENIDO, ${nombreUsuario.toUpperCase()}!`;
+                
+                setTimeout(() => { window.location.href = "tienda.html"; }, 1200);
             }
-
-            // 🎟️ LE DAMOS LOS DOS PASES VIP PARA QUE LA TIENDA NO SE VUELVA LOCA
-            localStorage.setItem('usuario_mc_activo', usuarioFirebase.email);
-            localStorage.setItem('mc_tiempo_sesion', Date.now()); // 🔥 AQUÍ ENTRA EL CRONÓMETRO PARA EL CLIENTE
-            localStorage.setItem('mc_usuario_activo', JSON.stringify({
-                nombre: nombreUsuario, 
-                correo: usuarioFirebase.email,
-                token: "firebase_" + usuarioFirebase.uid // Token moderno
-            }));
-            
-            // Animación Premium
-            btnSubmit.style.backgroundColor = "#28a745"; 
-            btnSubmit.style.opacity = '1';
-            btnSubmit.textContent = `✅ ¡BIENVENIDO, ${nombreUsuario.toUpperCase()}!`;
-            
-            setTimeout(() => { window.location.href = "tienda.html"; }, 1200);
 
         } catch (error) {
             btnSubmit.textContent = 'ENTRAR';
@@ -817,6 +820,7 @@ if (formLogin) {
         }
     });
 }
+
 // ==========================================
 // 👁️ VISOR Y GESTOR DE CATÁLOGO (ADMIN) EN FIREBASE
 // ==========================================
@@ -1026,7 +1030,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         if (datosLocales && datosLocales.nombre) {
             perfilNombre.textContent = datosLocales.nombre;
-        } else if (usuarioActivo === "admin@mc.com" || usuarioActivo === "admin_mc") {
+        } else if (usuarioActivo === "mcproductions407@gmail.com" || usuarioActivo === "admin_mc") {
             perfilNombre.textContent = "EL JEFE (ADMIN)";
         } else {
             perfilNombre.textContent = "Cliente VIP";
@@ -1060,7 +1064,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         localStorage.setItem(claveAvatar, datosNube.avatar); 
                     }
                 }
-            } else if (usuarioActivo === "admin@mc.com" || usuarioActivo === "admin_mc") {
+            } else if (usuarioActivo === "mcproductions407@gmail.com" || usuarioActivo === "admin_mc") {
                 const elementoFecha = document.getElementById('perfil-fecha');
                 if (elementoFecha) elementoFecha.textContent = "Día 1";
             }
