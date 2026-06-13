@@ -330,14 +330,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         // 6. VACIAR EL CARRITO COMPLETAMENTE
                         localStorage.setItem('mc_carrito', JSON.stringify([]));
                         
-                        // 7. VIAJE TRIUNFAL INMEDIATO (FORZADO CON REPLACE PARA MÓVILES) 🚀
-                        // Quitamos el alert para que el celular no se trabe y salte directo
-                        window.location.replace('/assets/pages/biblioteca.html');
+                        // 7. VIAJE TRIUNFAL INMEDIATO (FORZANDO AL NAVEGADOR PRINCIPAL) 🚀
+                        // window.top obliga al celular a cerrar el iframe de PayPal y mover la página entera
+                        window.top.location.href = '/assets/pages/biblioteca.html';
 
                     } catch (error) {
                         console.error("Error crítico guardando la compra en Firebase:", error);
-                        // En caso de error, también usamos replace para sacarlo de la pantalla de PayPal
-                        window.location.replace('/assets/pages/biblioteca.html');
+                        // También forzamos la salida aquí en caso de un micro-corte de internet
+                        window.top.location.href = '/assets/pages/biblioteca.html';
                     }
                 });
             },
