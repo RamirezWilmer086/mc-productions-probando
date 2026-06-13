@@ -4,7 +4,7 @@
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, serverTimestamp, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-storage.js";
 
 // ... (Aquí dejas la configuración "firebaseConfig" exactamente igual a como la tienes) ...
@@ -997,100 +997,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// ==========================================
-// SISTEMA DE REGISTRO PARA CLIENTES REALES
-// ==========================================
-document.addEventListener('DOMContentLoaded', () => {
-    
-    // 1. LÓGICA DE MOSTRAR/OCULTAR CONTRASEÑAS (Los ojitos)
-    const togglePassword = document.getElementById('toggle-password');
-    const inputPassword = document.getElementById('password');
-    const toggleConfirm = document.getElementById('toggle-confirm-password');
-    const inputConfirm = document.getElementById('confirmar-password');
-
-    function configurarOjito(icono, input) {
-        if(icono && input) {
-            icono.addEventListener('click', () => {
-                if (input.type === 'password') {
-                    input.type = 'text';
-                    icono.classList.replace('bx-hide', 'bx-show'); // Cambia el icono
-                    icono.style.color = '#8a2be2'; // Se pinta del color de tu diseño
-                } else {
-                    input.type = 'password';
-                    icono.classList.replace('bx-show', 'bx-hide');
-                    icono.style.color = 'gray';
-                }
-            });
-        }
-    }
-
-    configurarOjito(togglePassword, inputPassword);
-    configurarOjito(toggleConfirm, inputConfirm);
-
-
-    // 2. LÓGICA DE CREACIÓN DE CUENTA
-    const formRegister = document.getElementById('form-register');
-    const mensajeError = document.getElementById('mensaje-error');
-
-    // Función interna para mostrar errores en tu texto rojo del HTML
-    function mostrarError(mensaje) {
-        if (mensajeError) {
-            mensajeError.textContent = mensaje;
-            mensajeError.style.display = 'block';
-            // Desaparece el error después de 4 segundos para que se vea limpio
-            setTimeout(() => { mensajeError.style.display = 'none'; }, 4000);
-        } else {
-            alert(mensaje);
-        }
-    }
-
-    if (formRegister) {
-        formRegister.addEventListener('submit', (e) => {
-            e.preventDefault(); // Freno para que la página no parpadee
-
-            const nombre = document.getElementById('usuario').value.trim();
-            const correo = document.getElementById('email').value.trim().toLowerCase();
-            const password = document.getElementById('password').value;
-            const confirmar = document.getElementById('confirmar-password').value;
-
-            // Filtros de Seguridad
-            if (password.length < 6) {
-                return mostrarError("⚠️ La contraseña debe tener al menos 6 caracteres.");
-            }
-            if (password !== confirmar) {
-                return mostrarError("⚠️ Las contraseñas no coinciden. Revisa de nuevo.");
-            }
-
-            // Abrimos la base de datos de usuarios
-            let usuarios = JSON.parse(localStorage.getItem('usuarios_mc_db')) || [];
-
-            // Revisamos si el cliente ya existe
-            const existe = usuarios.find(user => user.correo === correo);
-            if (existe) {
-                return mostrarError("⚠️ Este correo ya está registrado. Por favor, inicia sesión.");
-            }
-
-            // Creamos el perfil del cliente
-            const nuevoUsuario = {
-                nombre: nombre,
-                correo: correo,
-                password: password, 
-                fechaRegistro: new Date().toLocaleDateString()
-            };
-
-            // Guardamos al cliente en el disco duro del navegador
-            usuarios.push(nuevoUsuario);
-            localStorage.setItem('usuarios_mc_db', JSON.stringify(usuarios));
-
-            // ¡Magia! Le damos la sesión automáticamente para que no tenga que loguearse de nuevo
-            localStorage.setItem('usuario_mc_activo', correo);
-
-            // Alerta de éxito y viaje directo a la tienda
-            alert(`✅ ¡Bienvenido a la familia MC Productions, ${nombre}! Tu cuenta está lista.`);
-            window.location.href = '/index.html'; 
-        });
-    }
-});
 
 // ==========================================
 // 👤 CEREBRO DEL PERFIL DE USUARIO Y AVATAR (FIREBASE)
@@ -1111,50 +1017,47 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        // --- 1. CARGAR CANTIDAD DE TRACKS COMPRADOS ---
-        const claveCompras = 'compras_' + usuarioActivo;
-        const misCompras = JSON.parse(localStorage.getItem(claveCompras)) || [];
-        const elementoTracks = document.getElementById('perfil-tracks');
-        if (elementoTracks) {
-            elementoTracks.textContent = `${misCompras.length} Tracks`;
-        }
-
-        // --- 2. CARGAR FOTO DE PERFIL (AVATAR) ---
+        // --- 1. CARGA RÁPIDA LOCAL (Mientras carga la nube) ---
         const claveAvatar = 'avatar_' + usuarioActivo;
         const avatarGuardado = localStorage.getItem(claveAvatar);
         if (avatarGuardado && perfilImg) {
             perfilImg.src = avatarGuardado;
         }
+        
+        if (datosLocales && datosLocales.nombre) {
+            perfilNombre.textContent = datosLocales.nombre;
+        } else if (usuarioActivo === "admin@mc.com" || usuarioActivo === "admin_mc") {
+            perfilNombre.textContent = "EL JEFE (ADMIN)";
+        } else {
+            perfilNombre.textContent = "Cliente VIP";
+        }
+
+        const elementoCorreo = document.getElementById('perfil-correo');
+        if(elementoCorreo) elementoCorreo.textContent = usuarioActivo;
 
         // ==========================================
-        // --- 3. CONECTAR CON FIREBASE PARA DATOS REALES (PARCHE TURBO) ---
+        // --- 2. CONECTAR CON FIREBASE PARA DATOS REALES ---
         try {
-        // 🚀 ACCIÓN INMEDIATA: Pintamos el nombre y correo usando la memoria local de la sesión activa
-            if (datosLocales && datosLocales.nombre) {
-                perfilNombre.textContent = datosLocales.nombre;
-            } else if (usuarioActivo === "admin@mc.com" || usuarioActivo === "admin_mc") {
-                perfilNombre.textContent = "EL JEFE (ADMIN)";
-            } else {
-                perfilNombre.textContent = "Cliente VIP";
-            }
-
-            const elementoCorreo = document.getElementById('perfil-correo');
-            if(elementoCorreo) elementoCorreo.textContent = usuarioActivo;
-
-            // ☁️ BÚSQUEDA EN SEGUNDO PLANO: Vamos a la nube de Google solo por la fecha de registro
+            // A) Buscar datos del usuario (Avatar y Fecha)
             if (datosLocales && datosLocales.token && datosLocales.token.includes('firebase_')) {
                 const uid = datosLocales.token.replace('firebase_', '');
-                const docRef = doc(db, "usuarios", uid);
-                const docSnap = await getDoc(docRef);
+                const docRefUsuario = doc(db, "usuarios", uid);
+                const docSnapUsuario = await getDoc(docRefUsuario);
 
-                if (docSnap.exists()) {
-                    const datosNube = docSnap.data();
+                if (docSnapUsuario.exists()) {
+                    const datosNube = docSnapUsuario.data();
                     
-                    // Si encontramos la fecha en Firebase, la pintamos de inmediato
+                    // Pintamos la fecha
                     if (datosNube.fechaRegistro) {
                         const fecha = new Date(datosNube.fechaRegistro);
                         const elementoFecha = document.getElementById('perfil-fecha');
                         if (elementoFecha) elementoFecha.textContent = fecha.toLocaleDateString();
+                    }
+
+                    // Pintamos el avatar
+                    if (datosNube.avatar) {
+                        perfilImg.src = datosNube.avatar;
+                        localStorage.setItem(claveAvatar, datosNube.avatar); 
                     }
                 }
             } else if (usuarioActivo === "admin@mc.com" || usuarioActivo === "admin_mc") {
@@ -1162,18 +1065,38 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (elementoFecha) elementoFecha.textContent = "Día 1";
             }
 
+            // B) 🚀 MAGIA: Buscar cantidad real de compras en la nube para el contador
+            const elementoTracks = document.getElementById('perfil-tracks');
+            if (elementoTracks) {
+                const docRefCompras = doc(db, "historial_compras", usuarioActivo);
+                const docSnapCompras = await getDoc(docRefCompras);
+                
+                if (docSnapCompras.exists()) {
+                    const datosHistorial = docSnapCompras.data();
+                    // Contamos los elementos dentro de la lista 'compras'
+                    const totalCompras = datosHistorial.compras ? datosHistorial.compras.length : 0;
+                    elementoTracks.textContent = `${totalCompras} Tracks`;
+                } else {
+                    elementoTracks.textContent = `0 Tracks`;
+                }
+            }
+
         } catch (error) {
             console.error("Error cargando perfil desde la nube:", error);
-            // Si el internet o la nube fallan, el nombre ya se pintó arriba de forma segura 🚀
+            // Si hay un micro-corte de internet, usamos el respaldo local para que no quede en blanco
+            const elementoTracks = document.getElementById('perfil-tracks');
+            if (elementoTracks) {
+                const misCompras = JSON.parse(localStorage.getItem('compras_' + usuarioActivo)) || [];
+                elementoTracks.textContent = `${misCompras.length} Tracks`;
+            }
         }
 
-        // --- 4. LÓGICA DE CERRAR SESIÓN SEGURA ---
+        // --- 3. LÓGICA DE CERRAR SESIÓN SEGURA ---
         const btnCerrarSesion = document.getElementById('btn-cerrar-sesion');
         if (btnCerrarSesion) {
             btnCerrarSesion.addEventListener('click', () => {
                 const confirmar = confirm("¿Estás seguro de que quieres cerrar sesión?");
                 if (confirmar) {
-                    // Borramos TODAS las llaves de seguridad al salir
                     localStorage.removeItem('usuario_mc_activo');
                     localStorage.removeItem('mc_usuario_activo');
                     localStorage.removeItem('mc_tiempo_sesion');
@@ -1183,9 +1106,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
-        // --- 5. LÓGICA PARA CAMBIAR LA FOTO DE PERFIL ---
+        // --- 4. LÓGICA PARA CAMBIAR LA FOTO DE PERFIL (SUBIDA A FIREBASE) ---
         if (inputAvatar && perfilImg) {
-            inputAvatar.addEventListener('change', function(event) {
+            inputAvatar.addEventListener('change', async function(event) {
                 const archivo = event.target.files[0]; 
                 
                 if (archivo) {
@@ -1194,18 +1117,36 @@ document.addEventListener('DOMContentLoaded', async () => {
                         return;
                     }
 
-                    const lector = new FileReader();
-                    lector.onload = function(e) {
-                        const fotoBase64 = e.target.result; 
+                    const nombreOriginal = perfilNombre.textContent;
+                    perfilNombre.textContent = "⏳ Subiendo a la nube...";
+
+                    try {
+                        // Subimos la imagen a Firebase Storage
+                        const nombreUnicoAvatar = `avatar_${Date.now()}_${archivo.name}`;
+                        const referenciaAvatar = ref(storage, `avatars/${nombreUnicoAvatar}`);
+                        await uploadBytes(referenciaAvatar, archivo);
+                        const urlAvatarNube = await getDownloadURL(referenciaAvatar);
+
+                        // Guardamos la URL en Firestore
+                        if (datosLocales && datosLocales.token && datosLocales.token.includes('firebase_')) {
+                            const uid = datosLocales.token.replace('firebase_', '');
+                            const docRef = doc(db, "usuarios", uid);
+                            await setDoc(docRef, { avatar: urlAvatarNube }, { merge: true });
+                        }
+
+                        // Actualizamos la pantalla
+                        perfilImg.src = urlAvatarNube;
+                        localStorage.setItem(claveAvatar, urlAvatarNube); 
                         
-                        perfilImg.src = fotoBase64;
-                        localStorage.setItem(claveAvatar, fotoBase64); // Guardamos su foto única
-                        
-                        const nombreOriginal = perfilNombre.textContent;
                         perfilNombre.textContent = "¡Foto Actualizada! ✅";
                         setTimeout(() => { perfilNombre.textContent = nombreOriginal; }, 2000);
-                    };
-                    lector.readAsDataURL(archivo);
+
+                    } catch (error) {
+                        console.error("Error al subir el avatar:", error);
+                        perfilNombre.textContent = "❌ Error al subir";
+                        setTimeout(() => { perfilNombre.textContent = nombreOriginal; }, 2000);
+                        alert("Hubo un problema al subir tu foto. Intenta de nuevo.");
+                    }
                 }
             });
         }
@@ -1240,7 +1181,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================
-// SISTEMA DE CAMBIO DE CONTRASEÑA
+// SISTEMA DE CAMBIO DE CONTRASEÑA (FIREBASE)
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     const btnAbrirPass = document.getElementById('btn-abrir-password');
@@ -1263,48 +1204,68 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 2. Procesar el cambio de seguridad
+    // 2. Procesar el cambio de seguridad en la nube
     if (btnGuardarPass) {
-        btnGuardarPass.addEventListener('click', () => {
+        btnGuardarPass.addEventListener('click', async () => {
             const passActualInput = document.getElementById('pass-actual').value;
             const passNueva = document.getElementById('pass-nueva').value;
             const passConfirmar = document.getElementById('pass-confirmar').value;
 
-            const usuarioActivo = localStorage.getItem('usuario_mc_activo');
-            let usuarios = JSON.parse(localStorage.getItem('usuarios_mc_db')) || [];
-            
-            // Buscamos cuál es el usuario que está conectado
-            let indiceUsuario = usuarios.findIndex(user => user.correo === usuarioActivo);
+            // Filtros de seguridad básicos
+            if (!passActualInput || !passNueva || !passConfirmar) {
+                alert("⚠️ Por favor, llena todos los campos.");
+                return;
+            }
+            if (passNueva.length < 6) {
+                alert("⚠️ La nueva contraseña debe tener al menos 6 caracteres.");
+                return;
+            }
+            if (passNueva !== passConfirmar) {
+                alert("⚠️ Las contraseñas nuevas no coinciden.");
+                return;
+            }
 
-            if (indiceUsuario !== -1) {
-                // Verificamos si escribió bien su contraseña actual
-                if (usuarios[indiceUsuario].password !== passActualInput) {
-                    alert("❌ La contraseña actual es incorrecta.");
-                    return;
-                }
-                
-                // Filtros de seguridad para la nueva contraseña
-                if (passNueva.length < 6) {
-                    alert("⚠️ La nueva contraseña debe tener al menos 6 caracteres.");
-                    return;
-                }
-                
-                if (passNueva !== passConfirmar) {
-                    alert("⚠️ Las contraseñas nuevas no coinciden.");
-                    return;
-                }
+            // Identificamos al usuario activo en Firebase
+            const usuarioFirebase = auth.currentUser;
 
-                // Si pasa todas las pruebas, ¡HACEMOS EL CAMBIO!
-                usuarios[indiceUsuario].password = passNueva;
-                localStorage.setItem('usuarios_mc_db', JSON.stringify(usuarios));
+            if (!usuarioFirebase) {
+                alert("⚠️ Error: Sesión no detectada en la nube. Cierra sesión y vuelve a entrar.");
+                return;
+            }
 
-                alert("✅ ¡Contraseña actualizada con éxito!");
+            try {
+                btnGuardarPass.textContent = 'VERIFICANDO EN LA NUBE...';
+                btnGuardarPass.style.pointerEvents = 'none';
+                btnGuardarPass.style.opacity = '0.7';
+
+                // A) Reautenticamos al cliente para comprobar que no sea un hacker tratando de cambiar la clave
+                const credenciales = EmailAuthProvider.credential(usuarioFirebase.email, passActualInput);
+                await reauthenticateWithCredential(usuarioFirebase, credenciales);
+
+                // B) Si la contraseña actual es correcta, guardamos la nueva en Google
+                await updatePassword(usuarioFirebase, passNueva);
+
+                alert("✅ ¡Contraseña actualizada con éxito! Tu cuenta está segura.");
                 
                 // Cerramos y limpiamos todo
                 modalPass.style.display = 'none';
                 document.getElementById('pass-actual').value = '';
                 document.getElementById('pass-nueva').value = '';
                 document.getElementById('pass-confirmar').value = '';
+
+            } catch (error) {
+                console.error("Error al cambiar contraseña:", error);
+                if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+                    alert("❌ La contraseña actual es incorrecta.");
+                } else if (error.code === 'auth/requires-recent-login') {
+                    alert("⚠️ Por seguridad extrema, cierra sesión y vuelve a entrar antes de cambiar tu contraseña.");
+                } else {
+                    alert("❌ Error al actualizar: " + error.message);
+                }
+            } finally {
+                btnGuardarPass.textContent = 'GUARDAR NUEVA CONTRASEÑA';
+                btnGuardarPass.style.pointerEvents = 'auto';
+                btnGuardarPass.style.opacity = '1';
             }
         });
     }
