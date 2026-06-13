@@ -1108,12 +1108,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                         return;
                     }
 
+                    // 🛑 ESCUDO: Asegurarnos de que Firebase ya despertó
+                    if (!auth.currentUser) {
+                        alert("⏳ Conectando con seguridad de Google... Por favor, intenta subirla de nuevo en 2 segundos.");
+                        return;
+                    }
+
                     const nombreOriginal = perfilNombre.textContent;
                     perfilNombre.textContent = "⏳ Subiendo a la nube...";
 
                     try {
+                        // 🧹 SANITIZAR NOMBRE: Quitamos los espacios y símbolos raros de WhatsApp
+                        const nombreLimpio = archivo.name.replace(/[^a-zA-Z0-9.]/g, "_");
+                        const nombreUnicoAvatar = `avatar_${Date.now()}_${nombreLimpio}`;
+                        
                         // Subimos la imagen a Firebase Storage
-                        const nombreUnicoAvatar = `avatar_${Date.now()}_${archivo.name}`;
                         const referenciaAvatar = ref(storage, `avatars/${nombreUnicoAvatar}`);
                         await uploadBytes(referenciaAvatar, archivo);
                         const urlAvatarNube = await getDownloadURL(referenciaAvatar);
@@ -1136,7 +1145,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         console.error("Error al subir el avatar:", error);
                         perfilNombre.textContent = "❌ Error al subir";
                         setTimeout(() => { perfilNombre.textContent = nombreOriginal; }, 2000);
-                        alert("Hubo un problema al subir tu foto. Intenta de nuevo.");
+                        alert("Hubo un problema al subir tu foto. Revisa tu conexión a internet.");
                     }
                 }
             });
