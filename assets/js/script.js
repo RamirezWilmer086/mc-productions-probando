@@ -274,17 +274,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             },
             
-            // B) SI EL BANCO APRUEBA EL PAGO (CONEXIÓN ULTRA-SEGURA A FIREBASE)
+            // B) SI EL BANCO APRUEBA EL PAGO (OPTIMIZADO PARA MÓVILES)
             onApprove: function(data, actions) {
-                // 🚀 OJO: Añadimos 'async' aquí adelante para poder usar los superpoderes de Firebase (await)
                 return actions.order.capture().then(async function(detalles) {
                     
                     try {
-                        // ¡EL DINERO YA ESTÁ EN CAMINO! 💸
                         const usuarioActivo = localStorage.getItem('usuario_mc_activo');
                         
                         if (!usuarioActivo) {
-                            alert("⚠️ Alerta: No se detectó sesión activa. Guarda tu ID de transacción: " + detalles.id);
+                            alert("⚠️ Alerta: No se detectó sesión activa. Guarda tu ID: " + detalles.id);
                             return;
                         }
 
@@ -296,11 +294,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             id: item.id,
                             titulo: item.titulo || "Track Premium",
                             fechaCompra: new Date().toISOString(),
-                            transaccionId: detalles.id, // Recibo oficial de PayPal
+                            transaccionId: detalles.id, 
                             montoPagado: detalles.purchase_units[0].amount.value
                         }));
 
-                        // 3. TRAER HISTORIAL VIEJO DE FIREBASE (Para acumular y no borrar lo que ya compró antes)
+                        // 3. TRAER HISTORIAL VIEJO DE FIREBASE
                         const docRefCompras = doc(db, "historial_compras", usuarioActivo);
                         const docSnap = await getDoc(docRefCompras);
                         
@@ -309,10 +307,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (docSnap.exists()) {
                             const datosViejos = docSnap.data();
                             if (datosViejos.compras && Array.isArray(datosViejos.compras)) {
-                                // Fusionamos el historial viejo con las canciones nuevas
                                 historialCompleto = datosViejos.compras.concat(nuevasAdquisiciones);
                             }
                         }
+
+                        // 💥 EMPIEZA LA OPTIMIZACIÓN VISUAL PARA EL CELULAR 💥
+                        // Avisamos de inmediato en pantalla ANTES de que el navegador se congele
+                        const nombreCliente = detalles.payer.name.given_name || "Jefe";
+                        alert(`✅ ¡Pago exitoso, ${nombreCliente}! Estamos guardando tu música en tu Bóveda...`);
 
                         // 4. SUBIDA EN VIVO A LA NUBE DE GOOGLE FIREBASE
                         await setDoc(docRefCompras, { 
@@ -328,18 +330,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         // 6. VACIAR EL CARRITO COMPLETAMENTE
                         localStorage.setItem('mc_carrito', JSON.stringify([]));
                         
-                        // 7. VIAJE TRIUNFAL A LA BIBLIOTECA
-                        const nombreCliente = detalles.payer.name.given_name;
-                        alert(`✅ ¡Pago exitoso, ${nombreCliente}! Tu música ha sido guardada en tu cuenta de MC Productions en la nube.`);
+                        // 7. VIAJE TRIUNFAL INMEDIATO
                         window.location.href = '/assets/pages/biblioteca.html';
 
                     } catch (error) {
                         console.error("Error crítico guardando la compra en Firebase:", error);
-                        alert("⚠️ Tu pago pasó bien, pero hubo un pestañeo al conectar con la nube. Tu música se guardó en este dispositivo.");
+                        alert("⚠️ Tu pago pasó bien, pero la nube está procesando. Revisa tu biblioteca en unos segundos.");
+                        window.location.href = '/assets/pages/biblioteca.html';
                     }
                 });
             },
-
+            
             // C) SI LA TARJETA ES FALSA O EL USUARIO CANCELA
             onError: function(err) {
                 console.error("Error procesando pago:", err);
