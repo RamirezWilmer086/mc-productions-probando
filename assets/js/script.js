@@ -4,7 +4,7 @@
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, serverTimestamp, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, updatePassword, EmailAuthProvider, reauthenticateWithCredential, signOut } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-storage.js";
 
 // ... (Aquí dejas la configuración "firebaseConfig" exactamente igual a como la tienes) ...
@@ -1095,17 +1095,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        // --- 3. LÓGICA DE CERRAR SESIÓN SEGURA ---
+        // --- LÓGICA DE CERRAR SESIÓN SEGURA (FIREBASE + LOCAL) ---
         const btnCerrarSesion = document.getElementById('btn-cerrar-sesion');
         if (btnCerrarSesion) {
-            btnCerrarSesion.addEventListener('click', () => {
+            btnCerrarSesion.addEventListener('click', async () => {
                 const confirmar = confirm("¿Estás seguro de que quieres cerrar sesión?");
                 if (confirmar) {
-                    localStorage.removeItem('usuario_mc_activo');
-                    localStorage.removeItem('mc_usuario_activo');
-                    localStorage.removeItem('mc_tiempo_sesion');
-                    localStorage.removeItem('admin_mc_activo');
-                    window.location.href = '/index.html';
+                    try {
+                        // 1. DESCONECTAR OFICIALMENTE DE GOOGLE FIREBASE 🔌
+                        await signOut(auth);
+
+                        // 2. BARRER LA MEMORIA LOCAL 🧹
+                        localStorage.removeItem('usuario_mc_activo');
+                        localStorage.removeItem('mc_usuario_activo');
+                        localStorage.removeItem('mc_tiempo_sesion');
+                        localStorage.removeItem('admin_mc_activo');
+                        
+                        // 3. MANDAR A LA PÁGINA DE INICIO
+                        window.location.href = '/index.html';
+                    } catch (error) {
+                        console.error("Error al cerrar sesión en la nube:", error);
+                    }
                 }
             });
         }
